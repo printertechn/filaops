@@ -1,0 +1,318 @@
+"""
+Shared test fixtures for BLB3D ERP tests
+
+Provides database setup, client creation, and user fixtures
+"""
+import pytest
+from decimal import Decimal
+from datetime import datetime, timedelta
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.main import app
+from app.db.base import Base
+from app.db.session import get_db
+from app.core.security import create_access_token, hash_password
+
+
+# Create in-memory SQLite database for testing
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def create_tables(engine):
+    """Create necessary tables for testing"""
+    from app.models.user import User, RefreshToken
+    from app.models.product import Product
+    from app.models.bom import BOM, BOMLine
+    from app.models.quote import Quote
+    from app.models.sales_order import SalesOrder
+    from app.models.production_order import ProductionOrder
+
+    # Create tables
+    User.__table__.create(bind=engine, checkfirst=True)
+    RefreshToken.__table__.create(bind=engine, checkfirst=True)
+    Product.__table__.create(bind=engine, checkfirst=True)
+    BOM.__table__.create(bind=engine, checkfirst=True)
+    BOMLine.__table__.create(bind=engine, checkfirst=True)
+    Quote.__table__.create(bind=engine, checkfirst=True)
+    SalesOrder.__table__.create(bind=engine, checkfirst=True)
+    ProductionOrder.__table__.create(bind=engine, checkfirst=True)
+
+
+def drop_tables(engine):
+    """Drop all tables after testing"""
+    from app.models.user import User, RefreshToken
+    from app.models.product import Product
+    from app.models.bom import BOM, BOMLine
+    from app.models.quote import Quote
+    from app.models.sales_order import SalesOrder
+    from app.models.production_order import ProductionOrder
+
+    # Drop tables in reverse order of dependencies
+    BOMLine.__table__.drop(bind=engine, checkfirst=True)
+    BOM.__table__.drop(bind=engine, checkfirst=True)
+    ProductionOrder.__table__.drop(bind=engine, checkfirst=True)
+    SalesOrder.__table__.drop(bind=engine, checkfirst=True)
+    Quote.__table__.drop(bind=engine, checkfirst=True)
+    Product.__table__.drop(bind=engine, checkfirst=True)
+    RefreshToken.__table__.drop(bind=engine, checkfirst=True)
+    User.__table__.drop(bind=engine, checkfirst=True)
+
+
+@pytest.fixture
+def db_session():
+    """Create a fresh database session for each test"""
+    create_tables(engine)
+
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        drop_tables(engine)
+
+
+@pytest.fixture
+def client(db_session):
+    """Create a test client with database override"""
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def admin_user(db_session):
+    """Create an admin user for testing"""
+    from app.models.user import User
+
+    user = User(
+        email="admin@test.com",
+        password_hash=hash_password("AdminPass123!"),
+        first_name="Admin",
+        last_name="User",
+        account_type="admin",
+        status="active",
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+def customer_user(db_session):
+    """Create a customer user for testing"""
+    from app.models.user import User
+
+    user = User(
+        email="customer@test.com",
+        password_hash=hash_password("CustomerPass123!"),
+        first_name="Customer",
+        last_name="User",
+        account_type="customer",
+        status="active",
+        customer_number="CUST-0001",
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+def admin_token(admin_user):
+    """Generate an access token for the admin user"""
+    return create_access_token(admin_user.id)
+
+
+@pytest.fixture
+def customer_token(customer_user):
+    """Generate an access token for the customer user"""
+    return create_access_token(customer_user.id)
+
+
+@pytest.fixture
+def admin_headers(admin_token):
+    """Return authorization headers for admin user"""
+    return {"Authorization": f"Bearer {admin_token}"}
+
+
+@pytest.fixture
+def customer_headers(customer_token):
+    """Return authorization headers for customer user"""
+    return {"Authorization": f"Bearer {customer_token}"}
+
+
+@pytest.fixture
+def sample_product(db_session):
+    """Create a sample product for testing"""
+    from app.models.product import Product
+
+    product = Product(
+        sku="TEST-PROD-001",
+        name="Test Product",
+        description="A test product for unit testing",
+        category="Test",
+        unit="EA",
+        cost=Decimal("10.00"),
+        selling_price=Decimal("25.00"),
+        type="standard",
+        active=True,
+    )
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+    return product
+
+
+@pytest.fixture
+def sample_material(db_session):
+    """Create a sample raw material for BOM testing"""
+    from app.models.product import Product
+
+    material = Product(
+        sku="MAT-TEST-PLA",
+        name="Test PLA Filament",
+        description="Test material",
+        category="Raw Material",
+        unit="kg",
+        cost=Decimal("20.00"),
+        is_raw_material=True,
+        active=True,
+    )
+    db_session.add(material)
+    db_session.commit()
+    db_session.refresh(material)
+    return material
+
+
+@pytest.fixture
+def sample_box(db_session):
+    """Create a sample packaging material"""
+    from app.models.product import Product
+
+    box = Product(
+        sku="PKG-BOX-4X4",
+        name="4x4x4 Shipping Box",
+        description="Small shipping box",
+        category="Packaging",
+        unit="EA",
+        cost=Decimal("0.50"),
+        is_raw_material=True,
+        active=True,
+    )
+    db_session.add(box)
+    db_session.commit()
+    db_session.refresh(box)
+    return box
+
+
+@pytest.fixture
+def sample_bom(db_session, sample_product, sample_material, sample_box):
+    """Create a sample BOM with lines for testing"""
+    from app.models.bom import BOM, BOMLine
+
+    bom = BOM(
+        product_id=sample_product.id,
+        code=f"BOM-{sample_product.sku}",
+        name=f"BOM for {sample_product.name}",
+        version=1,
+        revision="1.0",
+        active=True,
+        total_cost=Decimal("10.50"),
+    )
+    db_session.add(bom)
+    db_session.flush()
+
+    # Add material line
+    line1 = BOMLine(
+        bom_id=bom.id,
+        component_id=sample_material.id,
+        quantity=Decimal("0.50"),
+        sequence=1,
+        scrap_factor=Decimal("5.00"),
+        notes="Material line",
+    )
+    db_session.add(line1)
+
+    # Add box line
+    line2 = BOMLine(
+        bom_id=bom.id,
+        component_id=sample_box.id,
+        quantity=Decimal("1.00"),
+        sequence=2,
+        scrap_factor=Decimal("0.00"),
+        notes="Packaging line",
+    )
+    db_session.add(line2)
+
+    db_session.commit()
+    db_session.refresh(bom)
+    return bom
+
+
+@pytest.fixture
+def sample_quote(db_session, customer_user):
+    """Create a sample quote for testing"""
+    from app.models.quote import Quote
+
+    quote = Quote(
+        user_id=customer_user.id,
+        quote_number="Q-2025-TEST-001",
+        product_name="Test Custom Print",
+        quantity=1,
+        material_type="PLA_BASIC",
+        color="BLK",
+        finish="standard",
+        total_price=Decimal("25.00"),
+        file_format=".3mf",
+        file_size_bytes=1024000,
+        status="pending",
+        expires_at=datetime.utcnow() + timedelta(days=30),
+    )
+    db_session.add(quote)
+    db_session.commit()
+    db_session.refresh(quote)
+    return quote
+
+
+@pytest.fixture
+def sample_sales_order(db_session, customer_user, sample_quote):
+    """Create a sample sales order for testing"""
+    from app.models.sales_order import SalesOrder
+
+    order = SalesOrder(
+        user_id=customer_user.id,
+        quote_id=sample_quote.id,
+        order_number="SO-2025-TEST-001",
+        order_type="quote_based",
+        source="portal",
+        product_name="Test Custom Print",
+        quantity=1,
+        material_type="PLA_BASIC",
+        finish="standard",
+        unit_price=Decimal("25.00"),
+        total_price=Decimal("25.00"),
+        grand_total=Decimal("32.00"),
+        status="confirmed",
+        payment_status="paid",
+    )
+    db_session.add(order)
+    db_session.commit()
+    db_session.refresh(order)
+    return order

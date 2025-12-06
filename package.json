@@ -1,0 +1,20 @@
+{
+  "name": "blb3d-erp",
+  "version": "1.0.0",
+  "description": "A comprehensive ERP system for 3D print farm operations, replacing MRPeasy with integrated quote generation, production scheduling, and Bambu printer fleet management.",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui",
+    "test:customer": "npx playwright test customer-flow",
+    "test:admin": "npx playwright test admin-flow",
+    "test:report": "npx playwright show-report tests/e2e/reports",
+    "test:debug": "npx playwright test --debug"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.57.0"
+  }
+}

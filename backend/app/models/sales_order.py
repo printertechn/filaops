@@ -1,0 +1,160 @@
+"""
+Sales Order Model
+
+Represents customer orders converted from approved quotes
+"""
+from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text
+from sqlalchemy.orm import relationship
+from datetime import datetime
+
+from app.db.base import Base
+
+
+class SalesOrder(Base):
+    """Sales Order - Customer order created from accepted quote"""
+    __tablename__ = "sales_orders"
+
+    # Primary Key
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Foreign Keys
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    quote_id = Column(Integer, ForeignKey("quotes.id", ondelete="SET NULL"), nullable=True, index=True, unique=True)
+
+    # Order Identification
+    order_number = Column(String(50), unique=True, nullable=False, index=True)  # SO-2025-001
+
+    # Order Type & Source (for hybrid architecture)
+    order_type = Column(String(20), nullable=False, default='quote_based', index=True)
+    # 'quote_based' = Single custom product from portal quote
+    # 'line_item' = Multi-product order from marketplace (Squarespace/WooCommerce)
+
+    source = Column(String(50), nullable=False, default='portal', index=True)
+    # 'portal' | 'squarespace' | 'woocommerce' | 'manual'
+
+    source_order_id = Column(String(255), nullable=True, index=True)
+    # External order ID from marketplace (e.g., Squarespace order number)
+
+    # Product Information (copied from quote)
+    product_name = Column(String(255), nullable=True)
+    quantity = Column(Integer, nullable=False)
+    material_type = Column(String(50), nullable=False)  # PLA, PETG, ABS, ASA, TPU
+    finish = Column(String(50), nullable=False, default="standard")  # standard, smooth, painted
+
+    # Pricing (locked from quote at conversion time)
+    unit_price = Column(Numeric(10, 2), nullable=False)
+    total_price = Column(Numeric(10, 2), nullable=False)
+    tax_amount = Column(Numeric(10, 2), nullable=True, default=0.00)
+    shipping_cost = Column(Numeric(10, 2), nullable=True, default=0.00)
+    grand_total = Column(Numeric(10, 2), nullable=False)  # total + tax + shipping
+
+    # Order Status
+    # Lifecycle: pending → confirmed → in_production → quality_check → shipped → delivered → completed
+    # Can also be: cancelled, on_hold
+    status = Column(String(50), nullable=False, default="pending", index=True)
+
+    # Payment Status
+    payment_status = Column(String(50), nullable=False, default="pending", index=True)
+    # pending, paid, partial, refunded, cancelled
+    payment_method = Column(String(50), nullable=True)  # credit_card, paypal, stripe, manual
+    payment_transaction_id = Column(String(255), nullable=True)
+    paid_at = Column(DateTime, nullable=True)
+
+    # Production Information
+    rush_level = Column(String(20), nullable=False, default="standard")
+    # standard, rush, super_rush, urgent
+    estimated_completion_date = Column(DateTime, nullable=True)
+    actual_completion_date = Column(DateTime, nullable=True)
+
+    # Shipping Information
+    shipping_address_line1 = Column(String(255), nullable=True)
+    shipping_address_line2 = Column(String(255), nullable=True)
+    shipping_city = Column(String(100), nullable=True)
+    shipping_state = Column(String(50), nullable=True)
+    shipping_zip = Column(String(20), nullable=True)
+    shipping_country = Column(String(100), nullable=True, default="USA")
+
+    tracking_number = Column(String(255), nullable=True)
+    carrier = Column(String(100), nullable=True)  # USPS, FedEx, UPS
+    shipped_at = Column(DateTime, nullable=True)
+    delivered_at = Column(DateTime, nullable=True)
+
+    # Notes
+    customer_notes = Column(Text, nullable=True)
+    internal_notes = Column(Text, nullable=True)
+    production_notes = Column(Text, nullable=True)
+
+    # Cancellation
+    cancelled_at = Column(DateTime, nullable=True)
+    cancellation_reason = Column(Text, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    confirmed_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    user = relationship("User", back_populates="sales_orders")
+    quote = relationship("Quote", back_populates="sales_order", uselist=False)
+    lines = relationship("SalesOrderLine", back_populates="sales_order", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<SalesOrder {self.order_number} - {self.status}>"
+
+    @property
+    def is_cancellable(self) -> bool:
+        """Check if order can be cancelled"""
+        return self.status in ["pending", "confirmed", "on_hold"]
+
+    @property
+    def is_paid(self) -> bool:
+        """Check if order is fully paid"""
+        return self.payment_status == "paid"
+
+    @property
+    def can_start_production(self) -> bool:
+        """Check if order can start production"""
+        return (
+            self.status == "confirmed" and
+            self.payment_status in ["paid", "partial"]
+        )
+
+
+class SalesOrderLine(Base):
+    """
+    Sales Order Line - Individual line items for marketplace orders
+
+    Used when order_type = 'line_item' (Squarespace, WooCommerce, manual multi-item orders)
+    Each line represents one product with quantity and pricing
+    """
+    __tablename__ = "sales_order_lines"
+
+    # Primary Key
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Foreign Keys
+    sales_order_id = Column(Integer, ForeignKey("sales_orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
+
+    # Line Details
+    line_number = Column(Integer, nullable=False)  # Order within the sales order
+    quantity = Column(Integer, nullable=False)
+    unit_price = Column(Numeric(10, 2), nullable=False)
+    total_price = Column(Numeric(10, 2), nullable=False)  # quantity * unit_price
+
+    # Product snapshot (in case product changes later)
+    product_sku = Column(String(50), nullable=True)
+    product_name = Column(String(255), nullable=True)
+
+    # Notes
+    notes = Column(Text, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    sales_order = relationship("SalesOrder", back_populates="lines")
+    product = relationship("Product")
+
+    def __repr__(self):
+        return f"<SalesOrderLine {self.sales_order.order_number if self.sales_order else 'N/A'}-L{self.line_number}>"

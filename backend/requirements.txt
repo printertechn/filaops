@@ -1,0 +1,49 @@
+# FastAPI and Server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.18  # Updated to fix DoS vulnerability (Dependabot alert #4)
+
+# Database
+sqlalchemy==2.0.23
+pyodbc==5.0.1
+alembic==1.12.1
+
+# Data Validation
+pydantic==2.10.5  # Updated to latest with pre-built Windows wheels
+pydantic-settings==2.7.0  # Updated to match pydantic version
+email-validator==2.2.0  # Updated to latest
+
+# Authentication & Security
+# python-jose[cryptography] - removed due to critical vulnerability, replaced with PyJWT
+PyJWT==2.10.1  # JWT token generation and validation (Phase 2A)
+passlib[bcrypt]==1.7.4  # Password hashing
+python-dotenv==1.0.0
+
+# HTTP Client for Integrations
+httpx==0.25.1
+requests==2.32.4  # Updated to fix .netrc credentials leak (Dependabot alert #7)
+
+# Cloud Storage
+google-cloud-storage==2.14.0  # GCS backup for quote files
+
+# Background Tasks
+celery==5.3.4
+redis==5.0.1
+
+# WooCommerce
+woocommerce==3.0.0
+
+# QuickBooks (future)
+# intuit-oauth==1.2.4
+# python-quickbooks==0.9.5
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Development
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0  # Code coverage testing (90%+ target)
+black==24.10.0  # Updated from 23.11.0 to fix moderate vulnerability
+flake8==6.1.0

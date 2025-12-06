@@ -1,0 +1,193 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# FastAPI
+.env
+.env.local
+
+# Node
+node_modules/
+/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Uploads
+uploads/
+temp/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+tests/e2e/screenshots/
+tests/e2e/test-results/
+
+# Backup files
+*.bak
+
+# Data migration - entire folder (contains business data, invoices, PDFs)
+data_migration/
+
+# Test artifacts
+tests/e2e/screenshots/
+tests/e2e/test-results/
+tests/e2e/reports/
+backend/htmlcov/
+
+# Business data - DO NOT COMMIT
+*.csv
+!data_migration/README.md
+*.xlsx
+*.xls
+*.mrp
+# Specific data files
+Square_*.csv
+Squarespace_*.csv
+TikTok_*.csv
+amazon_*.csv
+*_orders*.csv
+*_transactions*.csv
+
+# SQL Server
+*.mdf
+*.ldf
+
+# Sensitive configs
+secrets.json
+credentials.json
+config.local.py
+
+# Temporary/test files
+_ul/
+nul
+*.3mf
+*.stl
+test-output.txt
+CURRENT_SESSION.md
+
+# One-off scripts in root (migrations in backend/ are tracked)
+/audit_*.py
+/check_*.py
+/cleanup_*.py
+/fix_*.py
+/test_*.py
+!backend/app/tests/
+
+# Temporary JSON files
+accept.json
+convert_order.json
+register.json
+register_response.json
+cli_config_fixed.json
+
+# Generated PDFs (regenerate from source)
+*.pdf
+
+# Batch files (local only)
+*.bat
+
+# Temp HTML
+*.html
+!frontend/
+
+# Root-level node files
+/package-lock.json
+
+# ===========================================
+# SECURITY - Prevent accidental secret commits
+# ===========================================
+
+# API keys and tokens
+*.pem
+*.key
+*.crt
+*_rsa
+*_dsa
+*_ecdsa
+*_ed25519
+service-account*.json
+google-credentials*.json
+
+# Environment files (all variants)
+.env.*
+!.env.example
+*.env
+local.settings.json
+
+# ML models and proprietary data
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.pth
+*.onnx
+*.model
+
+# Business data backups
+*_backup_*.json
+*_export_*.csv
+customer_*.csv
+order_*.csv
+
+# Deployment configs with secrets
+docker-compose.override.yml
+docker-compose.local.yml
+*.secrets.yml
+*.secrets.yaml
+
+# IDE with potential secrets in workspace
+.claude/
+!.claude/settings.json
+
+# Handoff docs (may contain sensitive context)
+HANDOFF*.md
+*_HANDOFF*.md
+!SESSION_HANDOFF.md
+BLB3D_*.md
+CURRENT_SESSION.md
+
+# Internal planning docs (keep architecture, remove internal refs)
+*_REFERENCE*.md

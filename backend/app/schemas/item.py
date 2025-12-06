@@ -1,0 +1,255 @@
+"""
+Item and Category Pydantic Schemas
+
+Supports unified item management for:
+- Finished goods (products sold to customers)
+- Components (parts used in BOMs)
+- Supplies (consumables like filament, packaging)
+- Services (non-physical items like machine time)
+"""
+from pydantic import BaseModel, Field
+from typing import Optional, List, Literal
+from datetime import datetime
+from decimal import Decimal
+from enum import Enum
+
+
+# ============================================================================
+# Enums
+# ============================================================================
+
+class ItemType(str, Enum):
+    """Types of items in the system"""
+    FINISHED_GOOD = "finished_good"
+    COMPONENT = "component"
+    SUPPLY = "supply"
+    SERVICE = "service"
+
+
+class CostMethod(str, Enum):
+    """Inventory costing methods"""
+    FIFO = "fifo"
+    AVERAGE = "average"
+    STANDARD = "standard"
+
+
+# ============================================================================
+# Item Category Schemas
+# ============================================================================
+
+class ItemCategoryBase(BaseModel):
+    """Base category fields"""
+    code: str = Field(..., min_length=1, max_length=50, description="Unique category code")
+    name: str = Field(..., min_length=1, max_length=100, description="Category name")
+    parent_id: Optional[int] = Field(None, description="Parent category ID for hierarchy")
+    description: Optional[str] = Field(None, max_length=1000)
+    sort_order: Optional[int] = Field(0, ge=0)
+    is_active: Optional[bool] = Field(True)
+
+
+class ItemCategoryCreate(ItemCategoryBase):
+    """Create a new category"""
+    pass
+
+
+class ItemCategoryUpdate(BaseModel):
+    """Update an existing category"""
+    code: Optional[str] = Field(None, min_length=1, max_length=50)
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    parent_id: Optional[int] = None
+    description: Optional[str] = Field(None, max_length=1000)
+    sort_order: Optional[int] = Field(None, ge=0)
+    is_active: Optional[bool] = None
+
+
+class ItemCategoryResponse(ItemCategoryBase):
+    """Category response with hierarchy info"""
+    id: int
+    parent_name: Optional[str] = None
+    full_path: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ItemCategoryTreeNode(BaseModel):
+    """Category with children for tree view"""
+    id: int
+    code: str
+    name: str
+    description: Optional[str] = None
+    is_active: bool
+    children: List["ItemCategoryTreeNode"] = []
+
+    class Config:
+        from_attributes = True
+
+
+# Self-reference for tree nodes
+ItemCategoryTreeNode.model_rebuild()
+
+
+# ============================================================================
+# Item (Product) Schemas
+# ============================================================================
+
+class ItemBase(BaseModel):
+    """Base item fields"""
+    sku: str = Field(..., min_length=1, max_length=50, description="Unique SKU")
+    name: str = Field(..., min_length=1, max_length=255, description="Item name")
+    description: Optional[str] = None
+    unit: Optional[str] = Field("EA", max_length=20)
+
+    # Classification
+    item_type: ItemType = Field(ItemType.FINISHED_GOOD, description="Type of item")
+    category_id: Optional[int] = Field(None, description="Category ID")
+
+    # Costing
+    cost_method: CostMethod = Field(CostMethod.AVERAGE, description="Costing method")
+    standard_cost: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    selling_price: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+
+    # Physical dimensions
+    weight_oz: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    length_in: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    width_in: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    height_in: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+
+    # Purchasing
+    lead_time_days: Optional[int] = Field(None, ge=0)
+    min_order_qty: Optional[Decimal] = Field(None, ge=0)
+    reorder_point: Optional[Decimal] = Field(None, ge=0)
+
+    # Identifiers
+    upc: Optional[str] = Field(None, max_length=50)
+    legacy_sku: Optional[str] = Field(None, max_length=50)
+
+    # Flags
+    is_active: Optional[bool] = Field(True, alias="active")
+    is_raw_material: Optional[bool] = Field(False)
+    track_lots: Optional[bool] = Field(False)
+    track_serials: Optional[bool] = Field(False)
+
+
+class ItemCreate(ItemBase):
+    """Create a new item"""
+    pass
+
+
+class ItemUpdate(BaseModel):
+    """Update an existing item"""
+    sku: Optional[str] = Field(None, min_length=1, max_length=50)
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    unit: Optional[str] = Field(None, max_length=20)
+
+    # Classification
+    item_type: Optional[ItemType] = None
+    category_id: Optional[int] = None
+
+    # Costing
+    cost_method: Optional[CostMethod] = None
+    standard_cost: Optional[Decimal] = Field(None, ge=0)
+    selling_price: Optional[Decimal] = Field(None, ge=0)
+
+    # Physical dimensions
+    weight_oz: Optional[Decimal] = Field(None, ge=0)
+    length_in: Optional[Decimal] = Field(None, ge=0)
+    width_in: Optional[Decimal] = Field(None, ge=0)
+    height_in: Optional[Decimal] = Field(None, ge=0)
+
+    # Purchasing
+    lead_time_days: Optional[int] = Field(None, ge=0)
+    min_order_qty: Optional[Decimal] = Field(None, ge=0)
+    reorder_point: Optional[Decimal] = Field(None, ge=0)
+
+    # Identifiers
+    upc: Optional[str] = Field(None, max_length=50)
+    legacy_sku: Optional[str] = Field(None, max_length=50)
+
+    # Flags
+    is_active: Optional[bool] = Field(None, alias="active")
+    is_raw_material: Optional[bool] = None
+    track_lots: Optional[bool] = None
+    track_serials: Optional[bool] = None
+
+
+class ItemListResponse(BaseModel):
+    """Item list summary"""
+    id: int
+    sku: str
+    name: str
+    item_type: str
+    category_id: Optional[int] = None
+    category_name: Optional[str] = None
+    unit: Optional[str] = None
+    standard_cost: Optional[Decimal] = None
+    average_cost: Optional[Decimal] = None
+    selling_price: Optional[Decimal] = None
+    suggested_price: Optional[Decimal] = None  # Calculated from standard_cost * markup
+    active: bool
+    on_hand_qty: Optional[Decimal] = None  # From inventory
+    available_qty: Optional[Decimal] = None  # On hand - allocated
+    reorder_point: Optional[Decimal] = None
+    needs_reorder: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class ItemResponse(ItemBase):
+    """Full item details"""
+    id: int
+    average_cost: Optional[Decimal] = None
+    last_cost: Optional[Decimal] = None
+    active: bool
+
+    # Category info
+    category_name: Optional[str] = None
+    category_path: Optional[str] = None
+
+    # Inventory summary
+    on_hand_qty: Optional[Decimal] = None
+    available_qty: Optional[Decimal] = None
+    allocated_qty: Optional[Decimal] = None
+
+    # BOM info
+    has_bom: bool = False
+    bom_count: int = 0
+
+    # Timestamps
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================================
+# Bulk Operations
+# ============================================================================
+
+class ItemCSVImportRequest(BaseModel):
+    """Settings for CSV import"""
+    update_existing: bool = Field(False, description="Update items if SKU exists")
+    default_item_type: ItemType = Field(ItemType.FINISHED_GOOD)
+    default_category_id: Optional[int] = None
+
+
+class ItemCSVImportResult(BaseModel):
+    """Result of CSV import"""
+    total_rows: int
+    created: int
+    updated: int
+    skipped: int
+    errors: List[dict] = []
+
+
+class ItemBulkUpdateRequest(BaseModel):
+    """Bulk update multiple items"""
+    item_ids: List[int]
+    category_id: Optional[int] = None
+    item_type: Optional[ItemType] = None
+    is_active: Optional[bool] = None
