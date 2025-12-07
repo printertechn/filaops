@@ -19,7 +19,9 @@ class SalesOrder(Base):
 
     # Foreign Keys
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    quote_id = Column(Integer, ForeignKey("quotes.id", ondelete="SET NULL"), nullable=True, index=True, unique=True)
+    # Note: unique constraint removed - SQL Server doesn't allow multiple NULLs in unique indexes
+    # Business logic in quote conversion ensures one quote -> one order
+    quote_id = Column(Integer, ForeignKey("quotes.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Order Identification
     order_number = Column(String(50), unique=True, nullable=False, index=True)  # SO-2025-001
