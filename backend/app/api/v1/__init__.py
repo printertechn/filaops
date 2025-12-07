@@ -1,22 +1,15 @@
 """
-API v1 Router
+API v1 Router - FilaOps Open Source
 """
 from fastapi import APIRouter
-
 from app.api.v1.endpoints import (
     auth,
-    quotes,
     sales_orders,
-    integration,
     production_orders,
-    print_jobs,
     inventory,
     products,
     items,
     materials,
-    payments,
-    shipping,
-    internal,
     vendors,
     purchase_orders,
     amazon_import,
@@ -28,109 +21,88 @@ from app.api.v1.endpoints.admin import router as admin_router
 
 router = APIRouter()
 
-# Include endpoint routers
-
-# Authentication (no additional prefix, uses /auth from router)
+# Authentication
 router.include_router(auth.router)
 
-# Quote System (Phase 2B - no additional prefix, uses /quotes from router)
-router.include_router(quotes.router)
-
-# Sales Order System (Phase 2C - no additional prefix, uses /sales-orders from router)
+# Sales Orders
 router.include_router(sales_orders.router)
 
+# Products
 router.include_router(
     products.router,
     prefix="/products",
     tags=["products"]
 )
 
-# Items API (Phase 4 - unified item management with categories)
+# Items (unified item management)
 router.include_router(
     items.router,
     prefix="/items",
     tags=["items"]
 )
 
-router.include_router(
-    integration.router,
-    prefix="/integration",
-    tags=["integration"]
-)
-
+# Production Orders
 router.include_router(
     production_orders.router,
     prefix="/production-orders",
     tags=["production"]
 )
 
-router.include_router(
-    print_jobs.router,
-    prefix="/print-jobs",
-    tags=["print-jobs"]
-)
-
+# Inventory
 router.include_router(
     inventory.router,
     prefix="/inventory",
     tags=["inventory"]
 )
 
+# Materials
 router.include_router(
     materials.router,
     prefix="/materials",
     tags=["materials"]
 )
 
-# Payments (Stripe integration)
-router.include_router(payments.router)
-
-# Shipping (EasyPost integration)
-router.include_router(shipping.router)
-
-# Admin (BOM management, dashboard, etc. - requires admin auth)
+# Admin (BOM management, dashboard, traceability)
 router.include_router(
     admin_router,
     prefix="/admin",
     tags=["admin"]
 )
 
-# Internal API (service-to-service communication - ML Dashboard, etc.)
-# See FUTURE_ARCHITECTURE.md for architectural decisions
-router.include_router(internal.router)
-
-# Purchasing Module (Phase 4B)
+# Vendors
 router.include_router(
     vendors.router,
     prefix="/vendors",
     tags=["vendors"]
 )
 
+# Purchase Orders
 router.include_router(
     purchase_orders.router,
     prefix="/purchase-orders",
     tags=["purchase-orders"]
 )
 
-# Amazon Import (CSV import for purchasing)
+# Amazon Import
 router.include_router(
     amazon_import.router,
     prefix="/import/amazon",
     tags=["import"]
 )
 
-# Manufacturing Routes (Phase 4C)
+# Work Centers
 router.include_router(
     work_centers.router,
     prefix="/work-centers",
     tags=["manufacturing"]
 )
 
+# Routings
 router.include_router(
     routings.router,
     prefix="/routings",
     tags=["manufacturing"]
 )
 
-# MRP (Material Requirements Planning) - Phase 5B
+# MRP (Material Requirements Planning)
 router.include_router(mrp.router)

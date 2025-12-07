@@ -1,126 +1,34 @@
 # FilaOps - 3D Print Farm ERP
 
-> Production-grade manufacturing resource planning for 3D print operations
+> Open source manufacturing resource planning for 3D print operations
 
 [![License: BSL](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com/)
 
-FilaOps is an open-source ERP system built specifically for 3D print farms. Quote to ship, with features that actually understand additive manufacturing.
-
-**Built by a print farm operator who got tired of paying $150/month for software that doesn't understand filament.**
-
-![Customer Quote Portal](docs/screenshots/quote-portal.png)
-*Customers upload 3MF files and get instant quotes with automatic multi-color detection*
+FilaOps is an open source ERP system built for 3D print farms. Manage products, inventory, BOMs, orders, and production - designed by someone who actually runs a print farm.
 
 ---
 
-## Why FilaOps?
+## What You Get
 
-Most ERP systems treat 3D printing like injection molding with extra steps. FilaOps was built from the ground up for additive manufacturing:
-
-- **Multi-color quoting** - Upload a 3MF with 7 colors, get accurate per-region material costs instantly
-- **Filament-aware inventory** - Track by material type, color, and spool with automatic reorder points
-- **Print farm workflows** - Work centers, routings, and operations designed for FDM/resin production
-- **Traceability ready** - Serial numbers, lot tracking, and recall queries for FDA/ISO compliance
-
----
-
-## Screenshots
-
-### Instant Multi-Color Quoting
-![Quote Result](docs/screenshots/quote-result.png)
-*Automatic single-color vs multi-color pricing with per-region gram breakdowns*
-
-### Full Cost Visibility
-![BOM Detail](docs/screenshots/bom-detail.png)
-*Material costs, packaging, and process operations with time standards*
-
-### Production Dashboard
-![Dashboard](docs/screenshots/dashboard.png)
-*Track quotes, orders, and production status at a glance*
-
-### Filament Inventory Management
-![Items](docs/screenshots/items.png)
-*Organize materials by type, track stock levels, manage reorder points*
-
----
-
-## Features
-
-### Core ERP
-- **Product Catalog** - SKUs, variants, pricing with material-aware costing
-- **Bill of Materials** - Multi-level BOMs with filament/hardware components
-- **Inventory Management** - Real-time stock levels, low stock alerts, FIFO tracking
-- **Sales Orders** - Multi-channel order management (retail, wholesale, custom quotes)
+### Core ERP (Fully Functional)
+- **Product Catalog** - SKUs, variants, material-aware costing
+- **Bill of Materials** - Multi-level BOMs with filament and hardware components
+- **Inventory Management** - Stock levels, low stock alerts, FIFO tracking
+- **Sales Orders** - Order management with status tracking
 - **Production Orders** - Manufacturing workflow with operation tracking
-- **MRP** - Material requirements planning with demand forecasting
+- **MRP** - Material requirements planning
 
 ### Manufacturing
-- **Work Centers** - Machine pools, capacity planning, utilization tracking
+- **Work Centers** - Machine pools and capacity planning
 - **Routings** - Operation sequences with time standards
 - **Traceability** - Serial numbers, lot tracking, recall queries (FDA/ISO ready)
 
-### Integrations
-- **Stripe** - Payment processing
-- **EasyPost** - Multi-carrier shipping rates and labels
-- **Squarespace** - Retail order sync (coming soon)
-- **QuickBooks** - Accounting integration (coming soon)
-
----
-
-## What's in This Repo?
-
-**FilaOps Open Source** is the ERP framework - the core system for managing a 3D print farm. Think of it as the foundation that you can build on.
-
-**FilaOps Pro** (coming Q2 2026) adds the customer-facing quote portal, ML-based pricing, and hosted solutions.
-
-### Mock API for Development
-
-This repo includes a **mock API server** (`/mock-api`) that simulates the Pro quote engine. It:
-- Parses real 3MF files and extracts geometry
-- Returns fake quotes with realistic structure
-- Enables UI development without proprietary pricing logic
-
-**Why mock data?** So contributors can help improve the quote portal UX (see [Issue #3](https://github.com/Blb3D/filaops/issues/3)) without needing access to our ML models or pricing algorithms. You build the interface, we swap in the real backend when Pro launches.
-
-Think of it like developing against Stripe's test mode - real API, fake transactions.
-
----
-
-## FilaOps Pro & Enterprise (Coming Q2 2026)
-
-We're building hosted solutions with premium features. Star/watch this repo to get notified when they launch.
-
-| Feature | Open Source | Pro | Enterprise |
-|---------|-------------|-----|------------|
-| **Core ERP** | | | |
-| Products, BOMs, Inventory | ✅ | ✅ | ✅ |
-| Sales Orders & Production Orders | ✅ | ✅ | ✅ |
-| Serial/Lot Traceability | ✅ | ✅ | ✅ |
-| Work Centers & Routing | ✅ | ✅ | ✅ |
-| **Development Tools** | | | |
-| Mock API (fake quote data) | ✅ | - | - |
-| Full API Documentation | ✅ | ✅ | ✅ |
-| **Customer Portal** | | | |
-| Quote Portal UI | Mock only* | ✅ | ✅ |
-| Real-time 3MF Analysis | - | ✅ | ✅ |
-| Multi-Material Quoting | - | ✅ | ✅ |
-| ML Print Time Estimation | - | ✅ | ✅ |
-| Customer Self-Service | - | ✅ | ✅ |
-| **Integrations** | | | |
-| Squarespace Sync | - | ✅ | ✅ |
-| QuickBooks Integration | - | ✅ | ✅ |
-| Stripe Payments | ✅ | ✅ | ✅ |
-| **Enterprise Features** | | | |
-| Printer Fleet Management | - | - | ✅ |
-| Live Production Monitoring | - | - | ✅ |
-| Production Scheduling | - | - | ✅ |
-| Advanced Analytics | - | - | ✅ |
-
-\* *Mock API returns fake quotes - good for building UI, not for real customers*
-
-Questions? [Contact us](mailto:hello@blb3dprinting.com) or open a [Discussion](https://github.com/Blb3D/filaops/discussions).
+### Admin Dashboard
+- Full React-based admin UI included
+- Manage products, BOMs, inventory, orders, production, shipping
+- Works out of the box with the backend API
 
 ---
 
@@ -128,86 +36,98 @@ Questions? [Contact us](mailto:hello@blb3dprinting.com) or open a [Discussion](h
 
 ### Prerequisites
 - Python 3.11+
+- Node.js 18+
 - SQL Server Express (or SQL Server)
 - ODBC Driver 17 for SQL Server
 
-### Installation
-
+### Backend Setup
 ```bash
-# Clone the repository
 git clone https://github.com/Blb3D/filaops.git
-cd filaops
+cd filaops/backend
 
-# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+venv\Scripts\activate  # Windows
+# source venv/bin/activate  # Linux/Mac
 
-# Install dependencies
-cd backend
 pip install -r requirements.txt
 
-# Copy environment template
 cp .env.example .env
 # Edit .env with your database credentials
 
-# Run the server
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-### Verify Installation
-Open http://localhost:8000/docs to see the API documentation.
+API docs: http://localhost:8000/docs
+
+### Frontend Setup
+```bash
+cd filaops/frontend
+
+npm install
+npm run dev
+```
+
+Admin UI: http://localhost:5173
+
+### Database Setup
+
+Run the schema script in SQL Server Management Studio:
+```
+scripts/setup_database.sql
+```
 
 ---
 
-## Architecture
+## Configuration
 
-```
-┌───────────────────────────────────────────────────────────┐
-│                     Order Sources                            │
-├─────────────────┬─────────────────┬────────────────────────┤
-│   Squarespace   │  Customer Portal │    B2B Partners        │
-│   (Retail)      │   (Custom Quotes)│   (Wholesale)          │
-└────────┬────────┴────────┬────────┴────────┬───────────────┘
-         │                 │                 │
-         └─────────────────┼─────────────────┘
-                           ▼
-┌───────────────────────────────────────────────────────────┐
-│                      FilaOps ERP                             │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
-│  │ Products │ │   BOMs   │ │ Orders   │ │Production│       │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
-│  │Inventory │ │ Routing  │ │Traceabil │ │   MRP    │       │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
-└───────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌───────────────────────────────────────────────────────────┐
-│                    Print Floor                               │
-│         (Bambu, Prusa, or any 3D printer fleet)             │
-└───────────────────────────────────────────────────────────┘
+Create `backend/.env`:
+```env
+# Database
+DB_HOST=localhost\SQLEXPRESS
+DB_NAME=FilaOps
+DB_TRUSTED_CONNECTION=true
+
+# Security
+SECRET_KEY=your-secure-secret-key
 ```
 
 ---
 
 ## Project Structure
-
 ```
 filaops/
-├── backend/
-│   ├── app/
-│   │   ├── api/v1/endpoints/   # REST API routes
-│   │   ├── models/             # SQLAlchemy ORM models
-│   │   ├── schemas/            # Pydantic request/response schemas
-│   │   ├── services/           # Business logic
-│   │   ├── core/               # Configuration, security
-│   │   └── db/                 # Database session management
-│   ├── tests/                  # Unit and integration tests
-│   └── requirements.txt
-├── docs/                       # Documentation
-├── config/                     # Configuration templates
-└── README.md
++-- backend/
+�   +-- app/
+�   �   +-- api/v1/endpoints/   # REST API routes
+�   �   +-- models/             # SQLAlchemy ORM models
+�   �   +-- schemas/            # Pydantic schemas
+�   �   +-- services/           # Business logic
+�   �   +-- core/               # Config, security
+�   +-- requirements.txt
++-- frontend/                   # React admin UI
++-- mock-api/                   # Mock quote server (for contributors)
++-- scripts/                    # Database setup scripts
++-- docs/
 ```
+
+---
+
+## Mock API (For Contributors)
+
+The `/mock-api` folder contains a mock quote server for UI development:
+- Parses real 3MF files
+- Returns fake quotes with realistic structure
+- Lets contributors improve the quote portal UI without access to proprietary pricing
+
+**This is for UI development only** - not for quoting real customers.
+```bash
+cd mock-api
+npm install
+node server.js
+# Runs on http://localhost:3001
+```
+
+See [mock-api/README.md](mock-api/README.md) for details.
 
 ---
 
@@ -232,89 +152,67 @@ PATCH  /api/v1/sales-orders/{id}  # Update order status
 ```
 GET    /api/v1/production-orders  # List production orders
 POST   /api/v1/production-orders  # Create production order
-POST   /api/v1/production-orders/{id}/start    # Start production
-POST   /api/v1/production-orders/{id}/complete # Complete production
+POST   /api/v1/production-orders/{id}/start
+POST   /api/v1/production-orders/{id}/complete
 ```
 
 ### Traceability
 ```
-GET    /api/v1/admin/traceability/lots      # Material lots
-GET    /api/v1/admin/traceability/serials   # Serial numbers
-GET    /api/v1/admin/traceability/recall/forward/{lot}   # Forward trace
-GET    /api/v1/admin/traceability/recall/backward/{sn}   # Backward trace
+GET    /api/v1/admin/traceability/lots
+GET    /api/v1/admin/traceability/serials
+GET    /api/v1/admin/traceability/recall/forward/{lot}
+GET    /api/v1/admin/traceability/recall/backward/{sn}
 ```
 
-Full API documentation available at `/docs` when running.
+Full API docs at `/docs` when running.
 
 ---
 
-## Configuration
+## FilaOps Pro (Coming 2026)
 
-Key environment variables (see `.env.example` for full list):
+| Feature | Open Source | Pro | Enterprise |
+|---------|:-----------:|:---:|:----------:|
+| Products, BOMs, Inventory | ? | ? | ? |
+| Sales & Production Orders | ? | ? | ? |
+| Work Centers & Routing | ? | ? | ? |
+| Serial/Lot Traceability | ? | ? | ? |
+| MRP | ? | ? | ? |
+| Admin Dashboard UI | ? | ? | ? |
+| REST API | ? | ? | ? |
+| Mock Quote API | ? | - | - |
+| Customer Quote Portal | - | ? | ? |
+| Multi-Material Quoting | - | ? | ? |
+| E-commerce Integrations | - | ? | ? |
+| Payment Processing | - | ? | ? |
+| Shipping Integrations | - | ? | ? |
+| Accounting Integrations | - | ? | ? |
+| Printer Fleet Management | - | - | ? |
+| Live Production Monitoring | - | - | ? |
+| ML Print Time Estimation | - | - | ? |
 
-```env
-# Database
-DB_HOST=localhost\SQLEXPRESS
-DB_NAME=FilaOps
-DB_TRUSTED_CONNECTION=true
-
-# Security
-SECRET_KEY=your-secure-secret-key
-
-# Integrations (optional)
-STRIPE_SECRET_KEY=sk_test_...
-EASYPOST_API_KEY=EZTKtest...
-```
-
----
-
-## Development
-
-```bash
-# Run tests
-pytest
-
-# Run with auto-reload
-python -m uvicorn app.main:app --reload --port 8000
-
-# Check API docs
-open http://localhost:8000/docs
-```
-
----
-
-## Roadmap
-
-- [x] Core ERP (Products, BOMs, Orders, Inventory)
-- [x] Production Orders with Operation Tracking
-- [x] Work Centers and Routing
-- [x] Serial/Lot Traceability
-- [ ] Squarespace Integration
-- [ ] QuickBooks Integration
-- [ ] B2B Partner Portal
-- [ ] Advanced Analytics Dashboard
+Questions? [Contact us](mailto:hello@blb3dprinting.com) or open a [Discussion](https://github.com/Blb3D/filaops/discussions).
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Please read our contributing guidelines before submitting PRs.
+Contributions welcome! This is the core ERP - help us make the foundation solid.
 
 ---
 
 ## License
 
-This project is licensed under the Business Source License 1.1. See [LICENSE](LICENSE) for details.
+Business Source License 1.1 - see [LICENSE](LICENSE).
 
-After 4 years, the code converts to Apache 2.0.
+Converts to Apache 2.0 after 4 years.
 
 ---
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/Blb3D/filaops/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/Blb3D/filaops/discussions)
+- [GitHub Issues](https://github.com/Blb3D/filaops/issues)
+- [GitHub Discussions](https://github.com/Blb3D/filaops/discussions)
 
 ---
 
-Built with ❤️ by [BLB3D](https://blb3dprinting.com) — a print farm that needed real manufacturing software.
+Built by [BLB3D](https://blb3dprinting.com) - a print farm that needed real manufacturing software.
