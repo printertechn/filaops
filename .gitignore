@@ -189,3 +189,4 @@ CURRENT_SESSION.md
 # Internal planning docs (keep architecture, remove internal refs)
 *_REFERENCE*.md
 !API_REFERENCE.md
+create-github-issues.ps1

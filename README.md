@@ -69,22 +69,56 @@ Most ERP systems treat 3D printing like injection molding with extra steps. Fila
 
 ---
 
+## What's in This Repo?
+
+**FilaOps Open Source** is the ERP framework - the core system for managing a 3D print farm. Think of it as the foundation that you can build on.
+
+**FilaOps Pro** (coming Q2 2026) adds the customer-facing quote portal, ML-based pricing, and hosted solutions.
+
+### Mock API for Development
+
+This repo includes a **mock API server** (`/mock-api`) that simulates the Pro quote engine. It:
+- Parses real 3MF files and extracts geometry
+- Returns fake quotes with realistic structure
+- Enables UI development without proprietary pricing logic
+
+**Why mock data?** So contributors can help improve the quote portal UX (see [Issue #3](https://github.com/Blb3D/filaops/issues/3)) without needing access to our ML models or pricing algorithms. You build the interface, we swap in the real backend when Pro launches.
+
+Think of it like developing against Stripe's test mode - real API, fake transactions.
+
+---
+
 ## FilaOps Pro & Enterprise (Coming Q2 2026)
 
 We're building hosted solutions with premium features. Star/watch this repo to get notified when they launch.
 
 | Feature | Open Source | Pro | Enterprise |
 |---------|-------------|-----|------------|
-| Core ERP (Products, BOMs, Orders) | ✅ | ✅ | ✅ |
-| Inventory & MRP | ✅ | ✅ | ✅ |
+| **Core ERP** | | | |
+| Products, BOMs, Inventory | ✅ | ✅ | ✅ |
+| Sales Orders & Production Orders | ✅ | ✅ | ✅ |
 | Serial/Lot Traceability | ✅ | ✅ | ✅ |
-| **Customer Quote Portal** | - | ✅ | ✅ |
-| **Multi-Color/Multi-Material Quoting** | - | ✅ | ✅ |
-| **B2B Partner Portal** | - | ✅ | ✅ |
-| Squarespace/QuickBooks Sync | - | ✅ | ✅ |
-| **ML Print Time Estimation** | - | - | ✅ |
-| **Printer Fleet Management** | - | - | ✅ |
-| **Live Production Monitoring** | - | - | ✅ |
+| Work Centers & Routing | ✅ | ✅ | ✅ |
+| **Development Tools** | | | |
+| Mock API (fake quote data) | ✅ | - | - |
+| Full API Documentation | ✅ | ✅ | ✅ |
+| **Customer Portal** | | | |
+| Quote Portal UI | Mock only* | ✅ | ✅ |
+| Real-time 3MF Analysis | - | ✅ | ✅ |
+| Multi-Material Quoting | - | ✅ | ✅ |
+| ML Print Time Estimation | - | ✅ | ✅ |
+| Customer Self-Service | - | ✅ | ✅ |
+| **Integrations** | | | |
+| Squarespace Sync | - | ✅ | ✅ |
+| QuickBooks Integration | - | ✅ | ✅ |
+| Stripe Payments | ✅ | ✅ | ✅ |
+| **Enterprise Features** | | | |
+| Printer Fleet Management | - | - | ✅ |
+| Live Production Monitoring | - | - | ✅ |
+| Production Scheduling | - | - | ✅ |
+| Advanced Analytics | - | - | ✅ |
+
+\* *Mock API returns fake quotes - good for building UI, not for real customers*
 
 Questions? [Contact us](mailto:hello@blb3dprinting.com) or open a [Discussion](https://github.com/Blb3D/filaops/discussions).
 
@@ -128,16 +162,16 @@ Open http://localhost:8000/docs to see the API documentation.
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
+┌───────────────────────────────────────────────────────────┐
 │                     Order Sources                            │
-├─────────────────┬─────────────────┬─────────────────────────┤
+├─────────────────┬─────────────────┬────────────────────────┤
 │   Squarespace   │  Customer Portal │    B2B Partners        │
 │   (Retail)      │   (Custom Quotes)│   (Wholesale)          │
-└────────┬────────┴────────┬────────┴────────┬────────────────┘
+└────────┬────────┴────────┬────────┴────────┬───────────────┘
          │                 │                 │
          └─────────────────┼─────────────────┘
                            ▼
-┌─────────────────────────────────────────────────────────────┐
+┌───────────────────────────────────────────────────────────┐
 │                      FilaOps ERP                             │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
 │  │ Products │ │   BOMs   │ │ Orders   │ │Production│       │
@@ -145,13 +179,13 @@ Open http://localhost:8000/docs to see the API documentation.
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
 │  │Inventory │ │ Routing  │ │Traceabil │ │   MRP    │       │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
-└─────────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────────────┘
                            │
                            ▼
-┌─────────────────────────────────────────────────────────────┐
+┌───────────────────────────────────────────────────────────┐
 │                    Print Floor                               │
 │         (Bambu, Prusa, or any 3D printer fleet)             │
-└─────────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────────────┘
 ```
 
 ---
