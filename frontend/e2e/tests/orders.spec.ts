@@ -40,7 +40,7 @@ test.describe('Order Management', () => {
     await expect(page.locator('.fixed select').nth(1)).toBeVisible();  // Product dropdown
     await expect(page.locator('.fixed input[type="number"]')).toBeVisible(); // Quantity
 
-    // Verify Create Order button is disabled without product selected
+    // Verify Create Order button is disabled without customer AND product selected
     const submitBtn = page.locator('.fixed button[type="submit"]');
     await expect(submitBtn).toBeDisabled();
 
@@ -48,7 +48,7 @@ test.describe('Order Management', () => {
     await page.keyboard.press('Escape');
   });
 
-  test('should FAIL to create order without product (validation)', async ({ authenticatedPage: page }) => {
+  test('should FAIL to create order without customer and product (validation)', async ({ authenticatedPage: page }) => {
     await page.click('text=Orders');
     await expect(page).toHaveURL('/admin/orders');
     await page.waitForLoadState('networkidle');
@@ -56,9 +56,18 @@ test.describe('Order Management', () => {
     await page.click('button:has-text("Create Order")');
     await expect(page.locator('.fixed h3:has-text("Create Sales Order")')).toBeVisible({ timeout: 5000 });
 
-    // Try to submit without selecting product - button should be disabled
+    // Button should be disabled without customer AND product
     const submitBtn = page.locator('.fixed button[type="submit"]');
     await expect(submitBtn).toBeDisabled();
+
+    // Select only product - still disabled (no customer)
+    const productSelect = page.locator('.fixed select').nth(1);
+    await page.waitForTimeout(1000);
+    const productOptions = await productSelect.locator('option').count();
+    if (productOptions > 1) {
+      await productSelect.selectOption({ index: 1 });
+      await expect(submitBtn).toBeDisabled(); // Still disabled - no customer
+    }
 
     await page.keyboard.press('Escape');
   });
@@ -75,18 +84,29 @@ test.describe('Order Management', () => {
     await page.click('button:has-text("Create Order")');
     await expect(page.locator('.fixed h3:has-text("Create Sales Order")')).toBeVisible({ timeout: 5000 });
 
-    // Wait for products to load
-    const productSelect = page.locator('.fixed select').nth(1);
-    await page.waitForTimeout(1000); // Give time for API to return products
+    // Wait for dropdowns to load
+    await page.waitForTimeout(1000);
 
+    const customerSelect = page.locator('.fixed select').first();
+    const productSelect = page.locator('.fixed select').nth(1);
+
+    const customerOptions = await customerSelect.locator('option').count();
     const productOptions = await productSelect.locator('option').count();
 
+    if (customerOptions <= 1) {
+      await page.keyboard.press('Escape');
+      test.skip(true, 'No customers available in database - cannot test order creation');
+      return;
+    }
+
     if (productOptions <= 1) {
-      // No products available - this is a test data issue, not a pass
       await page.keyboard.press('Escape');
       test.skip(true, 'No products available in database - cannot test order creation');
       return;
     }
+
+    // Select first customer (required)
+    await customerSelect.selectOption({ index: 1 });
 
     // Select first product
     await productSelect.selectOption({ index: 1 });
@@ -97,7 +117,7 @@ test.describe('Order Management', () => {
     // Set quantity
     await page.locator('.fixed input[type="number"]').fill('3');
 
-    // Submit should now be enabled
+    // Submit should now be enabled (customer + product selected)
     const submitBtn = page.locator('.fixed button[type="submit"]');
     await expect(submitBtn).toBeEnabled();
 

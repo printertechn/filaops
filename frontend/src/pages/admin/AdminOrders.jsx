@@ -95,6 +95,7 @@ export default function AdminOrders() {
 
   const handleCreateOrder = async (e) => {
     e.preventDefault();
+
     if (!createForm.product_id) {
       setError("Please select a product");
       return;
@@ -108,28 +109,30 @@ export default function AdminOrders() {
         (p) => p.id === parseInt(createForm.product_id)
       );
 
+      const payload = {
+        customer_id: createForm.customer_id ? parseInt(createForm.customer_id) : null,
+        lines: [
+          {
+            product_id: parseInt(createForm.product_id),
+            quantity: parseInt(createForm.quantity) || 1,
+            unit_price: selectedProduct?.selling_price || null,
+          },
+        ],
+        source: "manual",
+        shipping_address_line1: createForm.shipping_address_line1 || null,
+        shipping_city: createForm.shipping_city || null,
+        shipping_state: createForm.shipping_state || null,
+        shipping_zip: createForm.shipping_zip || null,
+        customer_notes: createForm.customer_notes || null,
+      };
+
       const res = await fetch(`${API_URL}/api/v1/sales-orders/`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          customer_id: createForm.customer_id ? parseInt(createForm.customer_id) : null,
-          lines: [
-            {
-              product_id: parseInt(createForm.product_id),
-              quantity: parseInt(createForm.quantity) || 1,
-              unit_price: selectedProduct?.selling_price || null,
-            },
-          ],
-          source: "manual",
-          shipping_address_line1: createForm.shipping_address_line1 || null,
-          shipping_city: createForm.shipping_city || null,
-          shipping_state: createForm.shipping_state || null,
-          shipping_zip: createForm.shipping_zip || null,
-          customer_notes: createForm.customer_notes || null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -416,11 +419,18 @@ export default function AdminOrders() {
               </div>
 
               <form onSubmit={handleCreateOrder} className="space-y-4">
+                {/* Error Display Inside Modal */}
+                {error && (
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm">
+                    {error}
+                  </div>
+                )}
+
                 {/* Customer Selection */}
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <label className="text-sm font-medium text-gray-300">
-                      Customer
+                      Customer *
                     </label>
                     <a
                       href="/admin/customers"
@@ -435,7 +445,7 @@ export default function AdminOrders() {
                     onChange={(e) => setCreateForm({ ...createForm, customer_id: e.target.value })}
                     className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white"
                   >
-                    <option value="">Walk-in / No customer</option>
+                    <option value="">Select a customer...</option>
                     {customers.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.customer_number} - {c.full_name || c.email}
@@ -588,7 +598,7 @@ export default function AdminOrders() {
                   </button>
                   <button
                     type="submit"
-                    disabled={creating || !createForm.product_id}
+                    disabled={creating || !createForm.product_id || !createForm.customer_id}
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {creating ? "Creating..." : "Create Order"}

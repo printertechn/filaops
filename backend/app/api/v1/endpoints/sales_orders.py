@@ -370,7 +370,7 @@ async def get_user_sales_orders(
     db: Session = Depends(get_db),
 ):
     """
-    Get list of sales orders for current user
+    Get list of sales orders
 
     Query parameters:
     - skip: Pagination offset (default: 0)
@@ -379,11 +379,17 @@ async def get_user_sales_orders(
 
     Returns:
         List of sales orders ordered by creation date (newest first)
+        - Admin users see ALL orders
+        - Regular users see only their own orders
     """
     if limit > 100:
         limit = 100
 
-    query = db.query(SalesOrder).filter(SalesOrder.user_id == current_user.id)
+    query = db.query(SalesOrder)
+
+    # Admin users can see all orders, regular users only see their own
+    if current_user.account_type != "admin":
+        query = query.filter(SalesOrder.user_id == current_user.id)
 
     if status_filter:
         query = query.filter(SalesOrder.status == status_filter)
