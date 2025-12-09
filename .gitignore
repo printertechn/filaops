@@ -214,6 +214,8 @@ HANDOFF*.md
 *_HANDOFF*.md
 !SESSION_HANDOFF.md
 BLB3D_*.md
+**/BLB3D*.md
+**/BLB3D*.pdf
 CURRENT_SESSION.md
 
 # Internal planning docs (keep architecture, remove internal refs)
@@ -232,3 +234,108 @@ docs/SAAS_TIERING_PLAN.md
 
 # Testing guides (internal)
 docs/VM_TESTING_GUIDE.md
+
+# Internal development plans and refactoring
+MRP_REFACTOR_PLAN.md
+*_REFACTOR*.md
+
+# Internal bug tracking and status
+docs/BUG_FIX_STATUS.md
+*_BUG*.md
+*_STATUS*.md
+
+# Draft content
+docs/DRAFT_DISCUSSION_POST.md
+*_DRAFT*.md
+
+# Pro/Enterprise feature implementation (internal)
+LICENSE_ACTIVATION_GUIDE.md
+TIER_SETUP.md
+*_ACTIVATION*.md
+
+# Business logic and pricing (internal)
+docs/PRINTER_COST_CALCULATOR.md
+
+# Debug and fix documentation (internal)
+*_DEBUG.md
+*_FIX.md
+*_FIX_COMPLETE.md
+DEBUG_*.md
+NETWORK_FIX.md
+ORDER_DETAIL_DEBUG.md
+
+# Internal documentation audit
+docs/DOCUMENTATION_AUDIT.md
+
+# Architecture docs (may reveal too much detail)
+SYSTEM_ARCHITECTURE.md
+ARCHITECTURE.md
+DATABASE_ARCHITECTURE.md
+INTEGRATION_ARCHITECTURE.md
+*_ARCHITECTURE.md
+
+# Workflow and design docs (may be too detailed)
+docs/UI_WORKFLOWS.md
+docs/MANUFACTURING_ROUTES.md
+
+# Project status and progress (internal tracking)
+PROJECT_STATUS.md
+PROGRESS_SUMMARY*.md
+*_PROGRESS*.md
+*_STATUS*.md
+RELEASE_PROGRESS.md
+
+# Release checklist (internal)
+OPEN_SOURCE_RELEASE_CHECKLIST.md
+
+# Integration and implementation docs (may reveal details)
+INTEGRATION_*.md
+IMPLEMENTATION_PLAN.md
+*_QUICKSTART.md
+
+# Testing and development docs (internal)
+TESTING*.md
+TEST_*.md
+*_TEST*.md
+TESTING_STRATEGY.md
+
+# Session and handoff docs (internal context)
+SESSION_HANDOFF.md
+*_HANDOFF*.md
+AI_CONTEXT.md
+CLAUDE.md
+
+# Phase and sprint planning (internal)
+PHASE_*.md
+SPRINT_PLAN.md
+*_PLAN.md
+!INSTALL.md
+
+# Numbering and standards (internal)
+NUMBERING_STANDARDS.md
+*_STANDARDS*.md
+
+# Issues and bug tracking (internal)
+ISSUES.md
+blb3d-erp-bugfixes.md
+
+# Manufacturing flow (may be too detailed)
+MANUFACTURING_FLOW.md
+
+# Diagrams (may contain internal architecture)
+DIAGRAMS.md
+
+# Core product scope (internal planning)
+CORE_PRODUCT_SCOPE.md
+
+# Authorization and recommendations (internal)
+AUTHORIZATION_RECOMMENDATION.md
+
+# Security doc (may reveal vulnerabilities)
+SECURITY.md
+
+# ERP/MRP review (internal analysis)
+ERP_MRP_REVIEW.md
+
+# Backend setup docs (may contain sensitive info)
+backend/GCS_SETUP.md
