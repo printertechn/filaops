@@ -88,7 +88,7 @@ The core ERP is fully functional and free to self-host. Pro and Enterprise tiers
 | User Activity Audit Logs | — | ✅ | ✅ |
 | ML Print Time Estimation | — | — | ✅ |
 | Printer Fleet Management | — | — | ✅ |
-| SSO / LDAP | — | — | ✅ |
+| SSO / LDAP | — | ✅ | ✅ |
 | Priority Support | — | — | ✅ |
 
 **Pro & Enterprise launching 2026** — [Join the waitlist](mailto:info@blb3dprinting.com)
