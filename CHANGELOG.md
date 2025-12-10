@@ -2,6 +2,43 @@
 
 All notable changes to FilaOps will be documented in this file.
 
+## [1.1.0] - 2025-12-10
+
+### Added
+- **Multi-User Management**: Full team management for admin and operator accounts
+  - Admin users API with CRUD operations, password reset, and user activation/deactivation
+  - Team Members UI (`/admin/users`) with stats dashboard, filtering, and search
+  - Role-based navigation - operators see limited menu (no imports, analytics, transactions)
+  - Staff login supporting both admin and operator account types
+- **Operator Role**: New account type with restricted access to core operations
+  - Can access: Dashboard, Orders, Production, Manufacturing, Inventory, Shipping
+  - Cannot access: User management, Analytics, Imports, Inventory Transactions
+- **Filament Filter**: Added "Filament" option to Items page filter dropdown
+  - Filters items with material_type_id (supplies that are filament materials)
+  - Orange badge styling for filament items
+
+### Changed
+- **Login Page**: Renamed to "Staff Login" to reflect multi-user support
+- **README**: Updated tier structure - Multi-user now in Community (free) tier
+- **Item Type Colors**: Supply items now use yellow badges (filaments use orange)
+
+### Fixed
+- **Critical: Frontend Build Failure** (Issue #40): Fixed missing `frontend/index.html`
+  - Root cause: `.gitignore` had `*.html` which excluded the Vite entry point
+  - Docker builds now work correctly for new installations
+- **AdminManufacturing Crash**: Fixed undefined state variables when opening routing modal
+  - Added missing `editingRouting` and `routingProductId` useState declarations
+- **SQL Server Boolean Comparisons**: Changed `.is_(True)` to `== True` across 23 files
+- **Customer Number Index**: Fixed unique constraint to allow multiple NULLs for non-customers
+- **Import Order Issues**: Created shared limiter module to fix circular import problems
+- **Pydantic Schema**: Use correct schema for locations in InventoryCheckResponse
+
+### Improved
+- **Order Workflow UX**: "Advance" button now shows target status (e.g., "→ Confirmed")
+- **Shipping Address Validation**: Clear error message with link to edit order when address missing
+- **Security**: Password hashing, refresh token revocation on password reset
+- **Authorization**: Protection against self-deactivation and last-admin removal
+
 ## [1.0.1] - 2025-12-09
 
 ### Changed
