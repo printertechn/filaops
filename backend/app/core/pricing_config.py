@@ -11,6 +11,10 @@ Approved pricing model: 3.5x-4.5x markup structure
 from typing import Dict, List
 from decimal import Decimal
 
+from app.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 # ============================================================================
 # MATERIAL COSTS (per gram)
@@ -383,8 +387,12 @@ if __name__ == "__main__":
         rush='standard'
     )
 
-    print("Example Quote:")
-    print(f"  Unit Price: ${quote['unit_price']}")
-    print(f"  Total Price: ${quote['total_price']}")
-    print(f"  Margin: {quote['margin_percent']}%")
-    print(f"  Delivery: {quote['estimated_delivery_days']} days")
+    logger.info(
+        "Example quote calculated",
+        extra={
+            "unit_price": str(quote['unit_price']),
+            "total_price": str(quote['total_price']),
+            "margin_percent": quote['margin_percent'],
+            "delivery_days": quote['estimated_delivery_days']
+        }
+    )

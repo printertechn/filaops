@@ -3,11 +3,11 @@ Database session management
 """
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import logging
 
 from app.core.config import settings
+from app.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Use the database_url property from settings
 # This handles both Windows Authentication (local dev) and SQL Server auth (Docker)

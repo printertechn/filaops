@@ -1,118 +1,72 @@
 # FilaOps Scripts
 
-Scripts for managing GitHub updates and viral launch.
+This directory contains utility scripts organized by purpose.
 
-## Scripts
+## 📁 Directory Structure
 
-### `update-readme-docker.ps1`
-Updates README.md with Docker hero section highlighting one-command deployment.
+### `github/`
+Scripts for GitHub issue and release management:
+- `create-new-issues.ps1` - Create GitHub issues from templates
+- `update-completed-issues.ps1` - Update issues with completion comments
+- `check-duplicate-issues.ps1` - Check for duplicate issues
+- `create-core-issues.ps1` - Create core release issues
+- `create-release.ps1` - Create GitHub releases
+- `add-github-topics.ps1` - Add topics to repository
 
-**Usage:**
-```powershell
-.\scripts\update-readme-docker.ps1
+**Usage:** Requires GitHub CLI (`gh`) to be installed and authenticated.
+
+### `database/`
+SQL scripts for database setup and migration:
+- `init-db.sql` - Initial database setup
+- `setup_database.sql` - Database initialization
+- `create_*.sql` - Table creation scripts
+- `*_sync_*.sql` - Data synchronization scripts
+- Various migration and fix scripts
+
+**Usage:** Run these scripts against your SQL Server database.
+
+### `tools/`
+Utility Python scripts and helpers:
+- `material_import.py` - Material data import utilities
+- `fresh_database_setup.py` - Fresh database setup script
+- Various migration and analysis tools
+
+**Usage:** Most can be run directly with Python:
+```bash
+python scripts/tools/script_name.py
 ```
 
-### `add-github-topics.ps1`
-Adds GitHub topics to the repository for better discoverability.
+## 🔧 PowerShell Scripts
 
-**Requirements:**
-- GitHub CLI (gh) installed
-- Authenticated: `gh auth login`
+### Prerequisites
+- PowerShell 7+ (recommended)
+- GitHub CLI (`gh`) for GitHub scripts
+- Python 3.11+ for Python scripts
 
-**Usage:**
+### Common Tasks
+
+**Create GitHub Issues:**
 ```powershell
-.\scripts\add-github-topics.ps1
+.\scripts\github\create-new-issues.ps1
 ```
 
-**Topics added:**
-- 3d-printing, erp, docker, manufacturing
-- inventory-management, print-farm, mrp, bom
-- fastapi, react, open-source, self-hosted
-- manufacturing-software, production-planning, material-requirements-planning
-
-### `create-release.ps1`
-Creates a GitHub release with release notes.
-
-**Requirements:**
-- GitHub CLI (gh) installed
-- Authenticated: `gh auth login`
-
-**Usage:**
+**Update Completed Issues:**
 ```powershell
-# Create release
-.\scripts\create-release.ps1
-
-# Create draft release
-.\scripts\create-release.ps1 -Draft
-
-# Custom version/title
-.\scripts\create-release.ps1 -Version "v1.0.0" -Title "My Release"
+.\scripts\github\update-completed-issues.ps1
 ```
 
-### `viral-launch.ps1`
-All-in-one script that runs all updates.
-
-**Usage:**
+**Check for Duplicates:**
 ```powershell
-# Run everything
-.\scripts\viral-launch.ps1
-
-# Skip release creation
-.\scripts\viral-launch.ps1 -SkipRelease
-
-# Create draft release
-.\scripts\viral-launch.ps1 -DraftRelease
+.\scripts\github\check-duplicate-issues.ps1
 ```
 
-## Prerequisites
+## 📝 Notes
 
-### GitHub CLI Installation
+- All scripts include error handling and user-friendly output
+- GitHub scripts require authentication: `gh auth login`
+- Database scripts should be run with appropriate permissions
+- Always review scripts before running in production
 
-1. **Windows:**
-   ```powershell
-   winget install --id GitHub.cli
-   ```
+---
 
-2. **macOS:**
-   ```bash
-   brew install gh
-   ```
-
-3. **Linux:**
-   ```bash
-   curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-   sudo apt update
-   sudo apt install gh
-   ```
-
-### Authentication
-
-```powershell
-gh auth login
-```
-
-Follow the prompts to authenticate.
-
-### Verify Setup
-
-```powershell
-gh auth status
-gh repo view Blb3D/filaops
-```
-
-## Manual Alternatives
-
-If you don't want to use GitHub CLI:
-
-1. **README Update:** Run `update-readme-docker.ps1` or edit manually
-2. **Topics:** Go to https://github.com/Blb3D/filaops/settings → Topics
-3. **Release:** Go to https://github.com/Blb3D/filaops/releases/new
-
-## Notes
-
-- Scripts are PowerShell (.ps1) files
-- Run from the repository root directory
-- Some scripts require GitHub CLI for full functionality
-- All scripts provide manual alternatives if CLI is not available
-
+For more information, see the main [README.md](../README.md) or [CONTRIBUTING.md](../CONTRIBUTING.md).

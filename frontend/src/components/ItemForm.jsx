@@ -5,8 +5,7 @@
  * BOM and Routing are managed separately via dedicated editors.
  */
 import { useState, useEffect } from "react";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../config/api";
 
 const ITEM_TYPES = [
   { value: "finished_good", label: "Finished Good" },
@@ -87,7 +86,8 @@ export default function ItemForm({
         setCategories(data);
       }
     } catch (err) {
-      console.error("Failed to fetch categories:", err);
+      // Categories fetch failure is non-critical - user can still create items
+      // Error is silently handled to avoid blocking the form
     }
   };
 

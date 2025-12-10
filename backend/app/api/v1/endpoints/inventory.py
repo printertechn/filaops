@@ -10,14 +10,14 @@ from pydantic import BaseModel
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-import logging
 
 from app.db.session import get_db
+from app.logging_config import get_logger
 from app.models.inventory import Inventory, InventoryTransaction, InventoryLocation
 from app.models.product import Product
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class InventoryCheckRequest(BaseModel):
     """Request to check inventory availability"""

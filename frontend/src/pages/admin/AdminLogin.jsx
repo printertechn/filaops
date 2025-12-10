@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../../config/api";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -29,8 +28,7 @@ export default function AdminLogin() {
         return;
       }
     } catch (err) {
-      // If we can't check, just show login
-      console.error("Could not check setup status:", err);
+      // If we can't check, just show login - setup check failure is non-critical
     } finally {
       setCheckingSetup(false);
     }

@@ -291,8 +291,6 @@ export default function Onboarding() {
       params.set("source", ordersSource);
 
       const url = `${API_URL}/api/v1/admin/orders/import?${params}`;
-      console.log("Importing orders to:", url);
-      console.log("Token present:", !!token);
       
       const res = await fetch(url, {
         method: "POST",
@@ -302,23 +300,18 @@ export default function Onboarding() {
         body: formData,
       });
 
-      console.log("Response status:", res.status, res.statusText);
-
       if (!res.ok) {
         let errorMessage = "Import failed";
         try {
           const errorData = await res.json();
           errorMessage = errorData.detail || errorData.message || errorMessage;
-          console.error("Error response:", errorData);
         } catch (e) {
           errorMessage = `Server error: ${res.status} ${res.statusText}`;
-          console.error("Failed to parse error response:", e);
         }
         throw new Error(errorMessage);
       }
 
       const data = await res.json();
-      console.log("Import result:", data);
 
       setOrdersResult(data);
       setTimeout(() => {

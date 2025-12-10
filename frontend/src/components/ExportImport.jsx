@@ -26,8 +26,7 @@ const ExportImport = ({ type }) => {
         document.body.removeChild(a);
       }
     } catch (error) {
-      console.error('Export failed:', error);
-      alert('Export failed. Please try again.');
+      alert(`Export failed: ${error.message || "Unknown error. Please try again."}`);
     }
   };
 

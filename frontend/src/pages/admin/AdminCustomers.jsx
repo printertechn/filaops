@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../../config/api";
 
 // Status options
 const STATUS_OPTIONS = [
@@ -140,7 +139,7 @@ export default function AdminCustomers() {
             data.newCustomerId = savedCustomer.id;
             sessionStorage.setItem("pendingOrderData", JSON.stringify(data));
           } catch (e) {
-            console.error("Failed to update pending order data:", e);
+            // Session storage update failure is non-critical - order creation will proceed
           }
         }
         // Navigate back to orders page (which will open the modal)
@@ -784,7 +783,7 @@ function CustomerDetailsModal({ customer, onClose, onEdit }) {
         setOrders(Array.isArray(data) ? data : []);
       }
     } catch (err) {
-      console.error("Failed to fetch orders:", err);
+      setError("Failed to load orders. Please refresh the page.");
     } finally {
       setLoadingOrders(false);
     }
@@ -1004,8 +1003,6 @@ function ImportCSVModal({ onClose, onImportComplete }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
-
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
   const handleDrag = (e) => {
     e.preventDefault();

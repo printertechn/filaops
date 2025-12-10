@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../config/api";
 
 /**
  * Production Scheduling Modal
@@ -59,7 +58,7 @@ export default function ProductionSchedulingModal({
         setWorkCenters(data);
       }
     } catch (err) {
-      console.error("Failed to fetch work centers:", err);
+      // Work centers fetch failure is non-critical - work center selector will be empty
     }
   };
 
@@ -80,7 +79,7 @@ export default function ProductionSchedulingModal({
         setResources(available);
       }
     } catch (err) {
-      console.error("Failed to fetch resources:", err);
+      // Resources fetch failure is non-critical - resource selector will be empty
     }
   };
 

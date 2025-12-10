@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import RoutingEditor from "../../components/RoutingEditor";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../../config/api";
 
 // Work center type options
 const CENTER_TYPES = [
@@ -90,7 +89,7 @@ export default function AdminManufacturing() {
         setProducts(data.products || data || []);
       }
     } catch (err) {
-      console.error("Failed to fetch products:", err);
+      // Products fetch failure is non-critical - product selector will just be empty
     }
   };
 
@@ -577,7 +576,6 @@ function WorkCenterCard({
   const [loadingResources, setLoadingResources] = useState(false);
 
   const token = localStorage.getItem("adminToken");
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
   const fetchResources = async () => {
     if (resources.length > 0) return;
@@ -592,7 +590,7 @@ function WorkCenterCard({
         setResources(data);
       }
     } catch (err) {
-      console.error(err);
+      // Resources fetch failure is non-critical - resource list will just be empty
     } finally {
       setLoadingResources(false);
     }
@@ -1394,8 +1392,6 @@ function RoutingModal({ products, workCenters, onClose, token, onSuccess }) {
     operations: [],
   });
   const [saving, setSaving] = useState(false);
-
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
   const addOperation = () => {
     setForm({

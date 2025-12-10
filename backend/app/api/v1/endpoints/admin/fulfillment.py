@@ -31,7 +31,7 @@ from app.models.printer import Printer
 from app.models.inventory import Inventory, InventoryTransaction, InventoryLocation
 # MaterialInventory removed - using unified Inventory table (Phase 1.4)
 from app.services.shipping_service import shipping_service
-# from app.api.v1.endpoints.auth import get_current_admin_user  # TODO: Enable when ready
+from app.api.v1.endpoints.auth import get_current_admin_user
 
 router = APIRouter(prefix="/fulfillment", tags=["Admin - Fulfillment"])
 
@@ -204,7 +204,7 @@ def build_production_queue_item(po: ProductionOrder, db: Session) -> dict:
 @router.get("/stats", response_model=FulfillmentStatsResponse)
 async def get_fulfillment_stats(
     db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user),  # TODO: Enable
+    current_admin: User = Depends(get_current_admin_user),
 ):
     """
     Get fulfillment dashboard statistics.
@@ -276,7 +276,7 @@ async def get_production_queue(
     limit: int = 50,
     offset: int = 0,
     db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user),  # TODO: Enable
+    current_admin: User = Depends(get_current_admin_user),
 ):
     """
     Get the production queue with all orders that need to be fulfilled.
@@ -346,7 +346,7 @@ async def get_production_queue(
 async def get_production_order_details(
     production_order_id: int,
     db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user),  # TODO: Enable
+    current_admin: User = Depends(get_current_admin_user),
 ):
     """
     Get detailed information about a specific production order.
@@ -442,7 +442,7 @@ async def start_production(
     production_order_id: int,
     request: StartProductionRequest,
     db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user),  # TODO: Enable
+    current_admin: User = Depends(get_current_admin_user),
 ):
     """
     Start production on an order.
@@ -659,7 +659,7 @@ async def complete_print(
     production_order_id: int,
     request: CompleteProductionRequest,
     db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user),  # TODO: Enable
+    current_admin: User = Depends(get_current_admin_user),
 ):
     """
     Mark printing as complete with good/bad quantity tracking.
@@ -956,7 +956,7 @@ async def pass_quality_check(
     production_order_id: int,
     qc_notes: Optional[str] = None,
     db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user),  # TODO: Enable
+    current_admin: User = Depends(get_current_admin_user),
 ):
     """
     Mark order as passed QC and ready to ship.
@@ -1026,7 +1026,7 @@ async def fail_quality_check(
     failure_reason: str,
     reprint: bool = True,
     db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user),  # TODO: Enable
+    current_admin: User = Depends(get_current_admin_user),
 ):
     """
     Mark order as failed QC.
@@ -1153,7 +1153,7 @@ async def fail_quality_check(
 async def get_orders_ready_to_ship(
     limit: int = 50,
     db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user),  # TODO: Enable
+    current_admin: User = Depends(get_current_admin_user),
 ):
     """
     Get all orders that are ready to ship.
@@ -1243,7 +1243,7 @@ async def get_orders_ready_to_ship(
 @router.get("/ship/boxes")
 async def get_available_boxes(
     db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user),  # TODO: Enable
+    current_admin: User = Depends(get_current_admin_user),
 ):
     """
     Get all available shipping boxes for shipper selection.
@@ -1621,7 +1621,7 @@ async def get_shipping_rates_for_order(
     sales_order_id: int,
     box_product_id: Optional[int] = None,  # Optional override for box selection
     db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user),  # TODO: Enable
+    current_admin: User = Depends(get_current_admin_user),
 ):
     """
     Get shipping rate options for an order.
@@ -1731,7 +1731,7 @@ async def buy_shipping_label(
     rate_id: str,
     shipment_id: str,  # Required - from get-rates response
     db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user),  # TODO: Enable
+    current_admin: User = Depends(get_current_admin_user),
 ):
     """
     Purchase a shipping label for an order.
@@ -1868,7 +1868,7 @@ async def mark_order_shipped(
     sales_order_id: int,
     request: ShipOrderRequest,
     db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user),  # TODO: Enable
+    current_admin: User = Depends(get_current_admin_user),
 ):
     """
     Manually mark an order as shipped (for when label was created outside system).
@@ -1906,7 +1906,7 @@ async def mark_order_shipped(
 async def bulk_update_status(
     request: BulkStatusUpdate,
     db: Session = Depends(get_db),
-    # current_admin: User = Depends(get_current_admin_user),  # TODO: Enable
+    current_admin: User = Depends(get_current_admin_user),
 ):
     """
     Update status for multiple production orders at once.

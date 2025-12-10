@@ -20,6 +20,7 @@ from app.models.sales_order import SalesOrder
 from app.models.quote import Quote
 from app.api.v1.endpoints.auth import get_current_admin_user
 from app.core.security import hash_password
+from app.logging_config import get_logger
 from app.schemas.customer import (
     CustomerCreate,
     CustomerUpdate,
@@ -29,6 +30,8 @@ from app.schemas.customer import (
 )
 
 router = APIRouter(prefix="/customers", tags=["Admin - Customer Management"])
+
+logger = get_logger(__name__)
 
 
 def generate_customer_number(db: Session) -> str:
@@ -323,7 +326,15 @@ async def create_customer(
     db.commit()
     db.refresh(customer)
 
-    print(f"[ADMIN] Customer {customer_number} created by {current_admin.email}")
+    logger.info(
+        "Customer created",
+        extra={
+            "customer_number": customer_number,
+            "customer_id": customer.id,
+            "admin_id": current_admin.id,
+            "admin_email": current_admin.email
+        }
+    )
 
     return {
         "id": customer.id,
@@ -403,7 +414,15 @@ async def update_customer(
     db.commit()
     db.refresh(customer)
 
-    print(f"[ADMIN] Customer {customer.customer_number} updated by {current_admin.email}")
+    logger.info(
+        "Customer updated",
+        extra={
+            "customer_number": customer.customer_number,
+            "customer_id": customer.id,
+            "admin_id": current_admin.id,
+            "admin_email": current_admin.email
+        }
+    )
 
     # Get stats for response
     order_count = db.query(func.count(SalesOrder.id)).filter(
@@ -483,12 +502,29 @@ async def delete_customer(
         # Soft delete - set status to inactive
         customer.status = "inactive"
         db.commit()
-        print(f"[ADMIN] Customer {customer.customer_number} deactivated by {current_admin.email} (has {order_count} orders)")
+        logger.info(
+            "Customer deactivated",
+            extra={
+                "customer_number": customer.customer_number,
+                "customer_id": customer.id,
+                "admin_id": current_admin.id,
+                "admin_email": current_admin.email,
+                "order_count": order_count
+            }
+        )
     else:
         # Hard delete - no orders
         db.delete(customer)
         db.commit()
-        print(f"[ADMIN] Customer {customer.customer_number} deleted by {current_admin.email}")
+        logger.info(
+            "Customer deleted",
+            extra={
+                "customer_number": customer.customer_number,
+                "customer_id": customer_id,
+                "admin_id": current_admin.id,
+                "admin_email": current_admin.email
+            }
+        )
 
     return None
 
@@ -1074,7 +1110,15 @@ async def import_customers(
     
     db.commit()
     
-    print(f"[ADMIN] CSV import by {current_admin.email}: {imported} imported, {skipped} skipped")
+    logger.info(
+        "Customer CSV import completed",
+        extra={
+            "admin_id": current_admin.id,
+            "admin_email": current_admin.email,
+            "imported": imported,
+            "skipped": skipped
+        }
+    )
     
     return {
         "imported": imported,

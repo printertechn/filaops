@@ -5,8 +5,7 @@
  * Pre-filled for material creation with material type and color selection.
  */
 import { useState, useEffect } from "react";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../config/api";
 
 export default function MaterialForm({ 
   isOpen, 
@@ -62,7 +61,7 @@ export default function MaterialForm({
         setMaterialTypes(data.materials || []);
       }
     } catch (err) {
-      console.error("Failed to fetch material types:", err);
+      // Material types fetch failure is non-critical - type selector will be empty
     }
   };
 
@@ -79,7 +78,7 @@ export default function MaterialForm({
         setColors(data.colors || []);
       }
     } catch (err) {
-      console.error("Failed to fetch colors:", err);
+      // Colors fetch failure - color selector will be empty
       setColors([]);
     }
   };

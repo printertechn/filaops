@@ -6,9 +6,11 @@ Handles user registration, login, token refresh, and profile retrieval
 from datetime import datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.db.session import get_db
 from app.models.user import User, RefreshToken, PasswordResetRequest
@@ -40,8 +42,15 @@ from app.core.security import (
     hash_refresh_token,
     REFRESH_TOKEN_EXPIRE_DAYS,
 )
+from app.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+# Rate limiter - imported from main app after initialization
+# This will be set by main.py during app startup
+limiter: Limiter = None  # type: ignore
 
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -125,7 +134,9 @@ async def get_current_admin_user(
 # ============================================================================
 
 @router.post("/register", response_model=UserWithTokens, status_code=status.HTTP_201_CREATED)
+@limiter.limit("3/minute")  # type: ignore
 async def register_user(
+    request: Request,
     user_data: UserRegister,
     db: Session = Depends(get_db)
 ):
@@ -203,7 +214,9 @@ async def register_user(
 # ============================================================================
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("5/minute")  # type: ignore
 async def login_user(
+    request: Request,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Session = Depends(get_db)
 ):
@@ -305,8 +318,6 @@ async def login_user(
         raise
     except Exception as e:
         # Log the actual error for debugging
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"Login error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -441,7 +452,9 @@ def generate_customer_number(db: Session) -> str:
 
 
 @router.post("/portal/register", response_model=PortalCustomerResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("3/minute")  # type: ignore
 async def portal_register(
+    request: Request,
     user_data: PortalRegister,
     db: Session = Depends(get_db)
 ):
@@ -485,13 +498,22 @@ async def portal_register(
     db.commit()
     db.refresh(new_user)
 
-    print(f"[PORTAL] New customer registered: {customer_number} ({user_data.email})")
+    logger.info(
+        "New customer registered",
+        extra={
+            "customer_number": customer_number,
+            "email": user_data.email,
+            "customer_id": new_user.id
+        }
+    )
 
     return new_user
 
 
 @router.post("/portal/login", response_model=PortalCustomerResponse)
+@limiter.limit("5/minute")  # type: ignore
 async def portal_login(
+    request: Request,
     login_data: PortalLogin,
     db: Session = Depends(get_db)
 ):
@@ -527,7 +549,14 @@ async def portal_login(
     db.commit()
     db.refresh(user)
 
-    print(f"[PORTAL] Customer logged in: {user.customer_number} ({user.email})")
+    logger.info(
+        "Customer logged in",
+        extra={
+            "customer_number": user.customer_number,
+            "email": user.email,
+            "customer_id": user.id
+        }
+    )
 
     return user
 
@@ -556,7 +585,9 @@ async def get_portal_customer(
 # ============================================================================
 
 @router.post("/password-reset/request", response_model=PasswordResetRequestResponse)
+@limiter.limit("3/minute")  # type: ignore
 async def request_password_reset(
+    request: Request,
     request_data: PasswordResetRequestCreate,
     db: Session = Depends(get_db)
 ):
@@ -619,7 +650,14 @@ async def request_password_reset(
         frontend_url=settings.FRONTEND_URL
     )
 
-    print(f"[AUTH] Password reset requested for {user.email}")
+    logger.info(
+        "Password reset requested",
+        extra={
+            "user_id": user.id,
+            "email": user.email,
+            "request_id": reset_request.id
+        }
+    )
 
     return PasswordResetRequestResponse(
         message=success_message,
@@ -685,7 +723,14 @@ async def approve_password_reset(
         frontend_url=settings.FRONTEND_URL
     )
 
-    print(f"[AUTH] Password reset approved for {user.email}")
+    logger.info(
+        "Password reset approved",
+        extra={
+            "user_id": user.id,
+            "email": user.email,
+            "request_id": reset_request.id
+        }
+    )
 
     return PasswordResetApprovalResponse(
         message="Password reset approved. User has been notified via email.",
@@ -742,7 +787,15 @@ async def deny_password_reset(
         reason=reason
     )
 
-    print(f"[AUTH] Password reset denied for {user.email}")
+    logger.info(
+        "Password reset denied",
+        extra={
+            "user_id": user.id,
+            "email": user.email,
+            "request_id": reset_request.id,
+            "reason": reason
+        }
+    )
 
     return PasswordResetApprovalResponse(
         message="Password reset denied. User has been notified.",
@@ -878,7 +931,14 @@ async def complete_password_reset(
         user_name=user.full_name
     )
 
-    print(f"[AUTH] Password reset completed for {user.email}")
+    logger.info(
+        "Password reset completed",
+        extra={
+            "user_id": user.id,
+            "email": user.email,
+            "request_id": reset_request.id
+        }
+    )
 
     return PasswordResetRequestResponse(
         message="Password has been reset successfully. You can now login with your new password."

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../../config/api";
 
 // Modal Component
 function Modal({ isOpen, onClose, title, children }) {
@@ -64,7 +63,7 @@ function PurchaseRequestModal({ line, onClose, token, onSuccess }) {
           setVendors(data);
         }
       } catch (err) {
-        console.error("Failed to fetch vendors:", err);
+        setError("Failed to load vendors. Please refresh the page.");
       } finally {
         setLoadingVendors(false);
       }
@@ -340,7 +339,7 @@ function BOMDetailView({
         setCostRollup(data);
       }
     } catch (err) {
-      console.error("Failed to fetch cost rollup:", err);
+      // Cost rollup fetch failure is non-critical - cost display will just be empty
     }
   };
 
@@ -357,7 +356,7 @@ function BOMDetailView({
         setRoutingTemplates(data.items || data);
       }
     } catch (err) {
-      console.error("Failed to fetch routing templates:", err);
+      // Routing templates fetch failure is non-critical - templates list will just be empty
     }
   };
 
@@ -401,7 +400,7 @@ function BOMDetailView({
         }
       }
     } catch (err) {
-      console.error("Failed to fetch product routing:", err);
+      // Product routing fetch failure is non-critical - routing section will just be empty
     }
   };
 
@@ -452,11 +451,11 @@ function BOMDetailView({
         setTimeOverrides(newOverrides);
         setSelectedTemplateId("");
       } else {
-        const err = await res.json();
-        console.error("Failed to apply template:", err.detail);
+        const errData = await res.json();
+        alert(`Failed to apply routing template: ${errData.detail || "Unknown error"}`);
       }
     } catch (err) {
-      console.error("Failed to apply template:", err);
+      alert(`Failed to apply routing template: ${err.message || "Network error"}`);
     } finally {
       setApplyingTemplate(false);
     }
@@ -497,9 +496,11 @@ function BOMDetailView({
         const data = await res.json();
         setExplodedData(data);
         setShowExploded(true);
+      } else {
+        alert("Failed to load exploded BOM view. Please try again.");
       }
     } catch (err) {
-      console.error("Failed to fetch exploded BOM:", err);
+      alert(`Failed to load exploded BOM: ${err.message || "Network error"}`);
     } finally {
       setLoading(false);
     }
@@ -528,7 +529,7 @@ function BOMDetailView({
         setProducts(data.items || data);
       }
     } catch (err) {
-      console.error("Failed to fetch products:", err);
+      setError("Failed to load products. Please refresh the page.");
     }
   };
 
@@ -564,9 +565,12 @@ function BOMDetailView({
         });
         setShowAddLine(false);
         onUpdate();
+      } else {
+        const errorData = await res.json();
+        alert(`Failed to add BOM line: ${errorData.detail || "Unknown error"}`);
       }
     } catch (err) {
-      console.error("Failed to add line:", err);
+      alert(`Failed to add BOM line: ${err.message || "Network error"}`);
     } finally {
       setLoading(false);
     }
@@ -592,9 +596,12 @@ function BOMDetailView({
         setLines(lines.map((l) => (l.id === lineId ? updatedLine : l)));
         setEditingLine(null);
         onUpdate();
+      } else {
+        const errorData = await res.json();
+        alert(`Failed to update BOM line: ${errorData.detail || "Unknown error"}`);
       }
     } catch (err) {
-      console.error("Failed to update line:", err);
+      alert(`Failed to update BOM line: ${err.message || "Network error"}`);
     } finally {
       setLoading(false);
     }
@@ -616,9 +623,12 @@ function BOMDetailView({
       if (res.ok) {
         setLines(lines.filter((l) => l.id !== lineId));
         onUpdate();
+      } else {
+        const errorData = await res.json();
+        alert(`Failed to delete BOM line: ${errorData.detail || "Unknown error"}`);
       }
     } catch (err) {
-      console.error("Failed to delete line:", err);
+      alert(`Failed to delete BOM line: ${err.message || "Network error"}`);
     } finally {
       setLoading(false);
     }
@@ -637,9 +647,12 @@ function BOMDetailView({
 
       if (res.ok) {
         onUpdate();
+      } else {
+        const errorData = await res.json();
+        alert(`Failed to recalculate BOM cost: ${errorData.detail || "Unknown error"}`);
       }
     } catch (err) {
-      console.error("Failed to recalculate:", err);
+      alert(`Failed to recalculate BOM cost: ${err.message || "Network error"}`);
     } finally {
       setLoading(false);
     }
@@ -1454,7 +1467,7 @@ function CreateBOMForm({ onClose, onCreate, token }) {
         setProducts(data.items || data);
       }
     } catch (err) {
-      console.error("Failed to fetch products:", err);
+      setError("Failed to load products. Please refresh the page.");
     }
   }, [token]);
 
@@ -2052,7 +2065,7 @@ export default function AdminBOM() {
       const data = await res.json();
       setSelectedBOM(data);
     } catch (err) {
-      console.error("Failed to load BOM:", err);
+      setError(`Failed to load BOM: ${err.message || "Unknown error"}`);
     }
   };
 
@@ -2067,9 +2080,12 @@ export default function AdminBOM() {
 
       if (res.ok) {
         fetchBOMs();
+      } else {
+        const errorData = await res.json();
+        alert(`Failed to delete BOM: ${errorData.detail || "Unknown error"}`);
       }
     } catch (err) {
-      console.error("Failed to delete BOM:", err);
+      alert(`Failed to delete BOM: ${err.message || "Network error"}`);
     }
   };
 
@@ -2082,9 +2098,12 @@ export default function AdminBOM() {
 
       if (res.ok) {
         fetchBOMs();
+      } else {
+        const errorData = await res.json();
+        alert(`Failed to copy BOM: ${errorData.detail || "Unknown error"}`);
       }
     } catch (err) {
-      console.error("Failed to copy BOM:", err);
+      alert(`Failed to copy BOM: ${err.message || "Network error"}`);
     }
   };
 

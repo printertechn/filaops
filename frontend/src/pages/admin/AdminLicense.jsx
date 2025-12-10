@@ -35,7 +35,7 @@ const AdminLicense = () => {
         setLicenseInfo(data);
       }
     } catch (error) {
-      console.error("Failed to fetch license info:", error);
+      // License info fetch failed - license section will be empty
     }
   };
 

@@ -3,8 +3,7 @@ import ItemForm from "../../components/ItemForm";
 import MaterialForm from "../../components/MaterialForm";
 import BOMEditor from "../../components/BOMEditor";
 import RoutingEditor from "../../components/RoutingEditor";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../../config/api";
 
 // Item type options
 const ITEM_TYPES = [
@@ -77,7 +76,7 @@ export default function AdminItems() {
         setCategoryTree(treeData);
       }
     } catch (err) {
-      console.error("Category fetch error:", err);
+      // Category fetch failure is non-critical - category tree will just be empty
     }
   };
 

@@ -12,6 +12,8 @@ from typing import Optional, List
 
 from app.db.session import get_db
 from app.models import MRPRun, PlannedOrder, Product
+from app.models.user import User
+from app.api.v1.endpoints.auth import get_current_admin_user
 from app.schemas.mrp import (
     MRPRunRequest, MRPRunResponse, MRPRunSummary,
     PlannedOrderCreate, PlannedOrderUpdate, PlannedOrderResponse,
@@ -33,6 +35,7 @@ router = APIRouter(prefix="/mrp", tags=["MRP"])
 @router.post("/run", response_model=MRPRunResponse)
 async def run_mrp(
     request: MRPRunRequest,
+    current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -43,6 +46,8 @@ async def run_mrp(
     2. Explode BOMs to calculate component requirements
     3. Net requirements against available inventory
     4. Generate planned orders for material shortages
+    
+    Requires admin authentication.
     """
     service = MRPService(db)
 
@@ -51,7 +56,7 @@ async def run_mrp(
             planning_horizon_days=request.planning_horizon_days,
             include_draft_orders=request.include_draft_orders,
             regenerate_planned=request.regenerate_planned,
-            user_id=None  # TODO: get from auth
+            user_id=current_user.id
         )
 
         # Get the MRP run record

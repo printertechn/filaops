@@ -9,10 +9,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 import csv
 import io
-import logging
 from collections import defaultdict
 
 from app.db.session import get_db
+from app.logging_config import get_logger
 from app.models.vendor import Vendor
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
 from app.models.product import Product
@@ -21,7 +21,7 @@ from app.models.user import User
 from pydantic import BaseModel
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ============================================================================

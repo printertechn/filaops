@@ -70,6 +70,8 @@ docker-compose up -d
 | [GETTING_STARTED.md](GETTING_STARTED.md) | Development setup guide |
 | [HOW_IT_WORKS.md](HOW_IT_WORKS.md) | Understanding the workflow |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | For contributors |
+| **[docs/](docs/)** | All project documentation (architecture, planning, guides) |
+| [docs/README.md](docs/README.md) | Documentation index and navigation |
 
 ---
 
@@ -137,7 +139,15 @@ filaops/
 │   └── Dockerfile
 ├── docker-compose.yml # One-command deployment
 ├── INSTALL.md         # User installation guide
-└── scripts/           # Database setup
+├── docs/              # All documentation (architecture, planning, guides)
+│   ├── architecture/  # Technical architecture docs
+│   ├── planning/      # Roadmaps and release plans
+│   ├── development/   # Developer guides and tools
+│   └── history/       # Project progress and milestones
+└── scripts/           # Utility scripts
+    ├── github/        # GitHub issue/release management
+    ├── database/      # Database setup and migrations
+    └── tools/         # Utility scripts and helpers
 ```
 
 ---

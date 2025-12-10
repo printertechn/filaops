@@ -73,6 +73,15 @@ jobs:
       - name: Run Ruff
         run: ruff check app/ --output-format=github
 
+      - name: Install type checking dependencies
+        run: |
+          pip install mypy types-python-dateutil
+          pip install sqlalchemy[mypy]  # SQLAlchemy mypy plugin
+
+      - name: Run MyPy type checking
+        run: mypy app/ --config-file pyproject.toml || true
+        continue-on-error: true  # Don't fail CI on type errors yet
+
   # ============================================
   # Frontend Tests (React/Vite)
   # ============================================

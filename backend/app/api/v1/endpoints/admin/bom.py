@@ -17,6 +17,7 @@ from app.models.user import User
 from app.models.inventory import Inventory
 from app.models.manufacturing import Routing
 from app.api.v1.endpoints.auth import get_current_admin_user
+from app.logging_config import get_logger
 from app.schemas.bom import (
     BOMCreate,
     BOMUpdate,
@@ -31,6 +32,8 @@ from app.schemas.bom import (
 )
 
 router = APIRouter(prefix="/bom", tags=["Admin - BOM Management"])
+
+logger = get_logger(__name__)
 
 
 # ============================================================================
@@ -331,7 +334,16 @@ async def create_bom(
     db.commit()
     db.refresh(bom)
 
-    print(f"[ADMIN] BOM created for {product.sku} by {current_admin.email}")
+    logger.info(
+        "BOM created",
+        extra={
+            "bom_id": bom.id,
+            "product_id": product.id,
+            "product_sku": product.sku,
+            "admin_id": current_admin.id,
+            "admin_email": current_admin.email
+        }
+    )
 
     return build_bom_response(bom, db)
 
@@ -363,7 +375,14 @@ async def update_bom(
     db.commit()
     db.refresh(bom)
 
-    print(f"[ADMIN] BOM {bom_id} updated by {current_admin.email}")
+    logger.info(
+        "BOM updated",
+        extra={
+            "bom_id": bom_id,
+            "admin_id": current_admin.id,
+            "admin_email": current_admin.email
+        }
+    )
 
     return build_bom_response(bom, db)
 
@@ -390,7 +409,14 @@ async def delete_bom(
     bom.active = False
     db.commit()
 
-    print(f"[ADMIN] BOM {bom_id} deactivated by {current_admin.email}")
+    logger.info(
+        "BOM deactivated",
+        extra={
+            "bom_id": bom_id,
+            "admin_id": current_admin.id,
+            "admin_email": current_admin.email
+        }
+    )
 
 
 # ============================================================================
@@ -455,7 +481,16 @@ async def add_bom_line(
     if comp_cost > 0 and line.quantity:
         line_cost = float(comp_cost) * float(line.quantity)
 
-    print(f"[ADMIN] BOM {bom_id} line added by {current_admin.email}")
+    logger.info(
+        "BOM line added",
+        extra={
+            "bom_id": bom_id,
+            "line_id": line.id,
+            "component_id": line.component_id,
+            "admin_id": current_admin.id,
+            "admin_email": current_admin.email
+        }
+    )
 
     return {
         "id": line.id,
@@ -525,7 +560,15 @@ async def update_bom_line(
     if component and comp_cost > 0 and line.quantity:
         line_cost = float(comp_cost) * float(line.quantity)
 
-    print(f"[ADMIN] BOM {bom_id} line {line_id} updated by {current_admin.email}")
+    logger.info(
+        "BOM line updated",
+        extra={
+            "bom_id": bom_id,
+            "line_id": line_id,
+            "admin_id": current_admin.id,
+            "admin_email": current_admin.email
+        }
+    )
 
     return {
         "id": line.id,
@@ -575,7 +618,15 @@ async def delete_bom_line(
 
     db.commit()
 
-    print(f"[ADMIN] BOM {bom_id} line {line_id} deleted by {current_admin.email}")
+    logger.info(
+        "BOM line deleted",
+        extra={
+            "bom_id": bom_id,
+            "line_id": line_id,
+            "admin_id": current_admin.id,
+            "admin_email": current_admin.email
+        }
+    )
 
 
 # ============================================================================
@@ -633,7 +684,16 @@ async def recalculate_bom(
     bom.total_cost = new_cost
     db.commit()
 
-    print(f"[ADMIN] BOM {bom_id} recalculated by {current_admin.email}: {previous_cost} -> {new_cost}")
+    logger.info(
+        "BOM recalculated",
+        extra={
+            "bom_id": bom_id,
+            "previous_cost": str(previous_cost),
+            "new_cost": str(new_cost),
+            "admin_id": current_admin.id,
+            "admin_email": current_admin.email
+        }
+    )
 
     return {
         "bom_id": bom_id,
@@ -715,7 +775,17 @@ async def copy_bom(
     db.commit()
     db.refresh(new_bom)
 
-    print(f"[ADMIN] BOM {bom_id} copied to product {target_product.sku} by {current_admin.email}")
+    logger.info(
+        "BOM copied",
+        extra={
+            "source_bom_id": bom_id,
+            "target_product_id": target_product.id,
+            "target_product_sku": target_product.sku,
+            "new_bom_id": new_bom.id,
+            "admin_id": current_admin.id,
+            "admin_email": current_admin.email
+        }
+    )
 
     return build_bom_response(new_bom, db)
 

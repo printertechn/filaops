@@ -160,29 +160,31 @@ class Settings(BaseSettings):
     SMTP_PORT: int = Field(default=587, description="SMTP server port")
     SMTP_USER: Optional[str] = Field(default=None, description="SMTP username")
     SMTP_PASSWORD: Optional[str] = Field(default=None, description="SMTP password")
-    SMTP_FROM_EMAIL: str = Field(default="noreply@blb3dprinting.com", description="From email address")
-    SMTP_FROM_NAME: str = Field(default="BLB3D Printing", description="From display name")
+    SMTP_FROM_EMAIL: str = Field(default="noreply@example.com", description="From email address")
+    SMTP_FROM_NAME: str = Field(default="Your Company Name", description="From display name")
     SMTP_TLS: bool = Field(default=True, description="Use TLS for SMTP")
 
     # ===================
     # Admin Settings
     # ===================
     ADMIN_APPROVAL_EMAIL: str = Field(
-        default="bbaker@blb3dprinting.com",
+        default="admin@example.com",
         description="Admin email for approvals"
     )
 
     # ===================
     # Ship From Address (Business Address)
     # ===================
-    SHIP_FROM_NAME: str = Field(default="BLB3D Printing")
-    SHIP_FROM_STREET1: str = Field(default="1613 Etna Ave")
+    # NOTE: These default values should be configured via environment variables
+    # for production deployments. Replace with your actual business address.
+    SHIP_FROM_NAME: str = Field(default="Your Company Name")
+    SHIP_FROM_STREET1: str = Field(default="123 Main Street")
     SHIP_FROM_STREET2: Optional[str] = Field(default=None)
-    SHIP_FROM_CITY: str = Field(default="Huntington")
-    SHIP_FROM_STATE: str = Field(default="IN")
-    SHIP_FROM_ZIP: str = Field(default="46750")
+    SHIP_FROM_CITY: str = Field(default="Your City")
+    SHIP_FROM_STATE: str = Field(default="ST")
+    SHIP_FROM_ZIP: str = Field(default="12345")
     SHIP_FROM_COUNTRY: str = Field(default="US")
-    SHIP_FROM_PHONE: str = Field(default="2602781555")
+    SHIP_FROM_PHONE: str = Field(default="555-555-5555")
 
     # ===================
     # Frontend Settings

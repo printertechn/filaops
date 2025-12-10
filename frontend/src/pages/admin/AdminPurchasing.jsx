@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../../config/api";
 
 const statusColors = {
   draft: "bg-gray-500/20 text-gray-400",
@@ -112,7 +111,7 @@ export default function AdminPurchasing() {
         setProducts(data.items || []);
       }
     } catch (err) {
-      console.error("Failed to fetch products:", err);
+      // Products fetch failure is non-critical - product selector will just be empty
     }
   };
 
@@ -128,7 +127,7 @@ export default function AdminPurchasing() {
         setLowStockSummary(data.summary || null);
       }
     } catch (err) {
-      console.error("Failed to fetch low stock items:", err);
+      setError("Failed to load low stock items. Please refresh the page.");
     } finally {
       setLowStockLoading(false);
     }
@@ -143,9 +142,11 @@ export default function AdminPurchasing() {
         const data = await res.json();
         setSelectedPO(data);
         return data;
+      } else {
+        setError("Failed to load purchase order details.");
       }
     } catch (err) {
-      console.error("Failed to fetch PO details:", err);
+      setError(`Failed to load purchase order: ${err.message || "Network error"}`);
     }
     return null;
   };

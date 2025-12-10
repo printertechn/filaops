@@ -20,10 +20,15 @@ email-validator==2.2.0
 PyJWT==2.10.1
 bcrypt==4.0.1
 python-dotenv==1.0.0
+slowapi==0.1.9
 
 # Utilities
 python-dateutil==2.8.2
 httpx==0.25.1
+
+# Development & Code Quality
+mypy==1.7.1
+types-python-dateutil==2.8.19.14
 
 # -------------------------------------------
 # Optional: For integrations (FilaOps Pro)

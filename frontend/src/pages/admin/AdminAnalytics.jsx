@@ -44,14 +44,10 @@ const AdminAnalytics = () => {
         const data = await response.json();
         setAnalytics(data);
       } else {
-        console.error(
-          "Failed to fetch analytics:",
-          response.status,
-          response.statusText
-        );
+        // Analytics fetch failed - analytics section will be empty
       }
     } catch (error) {
-      console.error("Failed to fetch analytics:", error);
+      // Analytics fetch failed - analytics section will be empty
     } finally {
       setLoading(false);
     }

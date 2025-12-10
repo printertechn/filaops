@@ -91,8 +91,6 @@ export default function AdminMaterialImport() {
       }
 
       const url = `${API_URL}/api/v1/materials/import?${params}`;
-      console.log("Importing materials to:", url);
-      console.log("Token present:", !!token);
       
       const res = await fetch(url, {
         method: "POST",
@@ -100,28 +98,22 @@ export default function AdminMaterialImport() {
         body: formData,
       });
 
-      console.log("Response status:", res.status, res.statusText);
-
       if (!res.ok) {
         let errorMessage = "Import failed";
         try {
           const errorData = await res.json();
           errorMessage = errorData.detail || errorData.message || errorMessage;
-          console.error("Error response:", errorData);
         } catch (e) {
           errorMessage = `Server error: ${res.status} ${res.statusText}`;
-          console.error("Failed to parse error response:", e);
         }
         throw new Error(errorMessage);
       }
 
       const data = await res.json();
-      console.log("Import result:", data);
 
       setResult(data);
       setStep("complete");
     } catch (err) {
-      console.error("Import error:", err);
       if (err.message === "Failed to fetch") {
         setError("Cannot connect to server. Please ensure the backend is running and check the browser console for details.");
       } else {

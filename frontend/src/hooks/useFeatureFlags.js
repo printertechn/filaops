@@ -29,7 +29,7 @@ export const useFeatureFlags = () => {
           setTier('open');
         }
       } catch (error) {
-        console.error('Failed to fetch tier:', error);
+        // Tier fetch failure - default to 'open' tier
         setTier('open');
       } finally {
         setLoading(false);

@@ -18,13 +18,13 @@ Environment Variables:
 - GDRIVE_FOLDER_ID: Google Drive folder ID to upload to
 """
 import os
-import logging
+from app.logging_config import get_logger
 from typing import Optional, Tuple
 from datetime import datetime
 
 from app.core.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Google Drive API imports (optional)
 try:

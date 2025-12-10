@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../../config/api";
 
 export default function AdminShipping() {
   const [searchParams] = useSearchParams();
@@ -105,7 +104,7 @@ export default function AdminShipping() {
         }));
       }
     } catch (err) {
-      console.error("Failed to fetch production status:", err);
+      // Production status fetch failure is non-critical - status will just be unavailable
     }
   };
 
@@ -166,9 +165,12 @@ export default function AdminShipping() {
       if (res.ok) {
         fetchReadyOrders();
         setSelectedOrder(null);
+      } else {
+        const errorData = await res.json();
+        alert(`Failed to update order status: ${errorData.detail || "Unknown error"}`);
       }
     } catch (err) {
-      console.error("Failed to update status:", err);
+      alert(`Failed to update order status: ${err.message || "Network error"}`);
     }
   };
 

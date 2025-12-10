@@ -19,6 +19,9 @@ from sqlalchemy import desc
 
 from app.models import Quote, Product, BOM, SalesOrder, SalesOrderLine, ProductionOrder
 from app.services.bom_service import auto_create_product_and_bom, validate_quote_for_bom
+from app.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -254,8 +257,17 @@ def convert_quote_to_order(
         db.refresh(sales_order)
         db.refresh(production_order)
         
-        print(f"[CONVERSION] Quote {quote.quote_number} -> SO {order_number} -> PO {po_code}")
-        print(f"[CONVERSION] Product: {product.sku}, BOM ID: {bom.id if bom else 'None'}")
+        logger.info(
+            "Quote converted to sales order and production order",
+            extra={
+                "quote_number": quote.quote_number,
+                "sales_order_number": order_number,
+                "production_order_code": po_code,
+                "product_id": product.id,
+                "product_sku": product.sku,
+                "bom_id": bom.id if bom else None
+            }
+        )
         
         return ConversionResult(
             success=True,

@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../config/api";
 
 // Item type options
 const ITEM_TYPES = [
@@ -162,7 +161,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
           setCurrentStep(data.currentStep || 1);
           sessionStorage.removeItem("pendingOrderData");
         } catch (e) {
-          console.error("Failed to restore order data:", e);
+          // Session storage failure is non-critical - order creation will proceed
         }
       }
 
@@ -267,7 +266,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         return customersList;
       }
     } catch (err) {
-      console.error("Failed to fetch customers:", err);
+      // Customers fetch failure is non-critical - customer selector will be empty
     }
     return [];
   };
@@ -285,7 +284,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         setProducts(data.items || data || []);
       }
     } catch (err) {
-      console.error("Failed to fetch products:", err);
+      // Products fetch failure is non-critical - product selector will be empty
     }
   };
 
@@ -299,7 +298,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         setCategories(data);
       }
     } catch (err) {
-      console.error("Failed to fetch categories:", err);
+      // Categories fetch failure is non-critical - category selector will be empty
     }
   };
 
@@ -344,7 +343,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
 
       setComponents(allComponents);
     } catch (err) {
-      console.error("Failed to fetch components:", err);
+      // Components fetch failure is non-critical - component selector will be empty
     }
   };
 
@@ -358,7 +357,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         setWorkCenters(data);
       }
     } catch (err) {
-      console.error("Failed to fetch work centers:", err);
+      // Work centers fetch failure is non-critical - work center selector will be empty
     }
   };
 
@@ -375,7 +374,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         setRoutingTemplates(data);
       }
     } catch (err) {
-      console.error("Failed to fetch routing templates:", err);
+      // Routing templates fetch failure is non-critical - templates list will be empty
     }
   };
 
@@ -392,7 +391,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         setMaterialTypes(data.materials || []);
       }
     } catch (err) {
-      console.error("Failed to fetch material types:", err);
+      // Material types fetch failure is non-critical - material type selector will be empty
     }
   };
 
@@ -412,7 +411,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         setAllColors(data.colors || []);
       }
     } catch (err) {
-      console.error("Failed to fetch colors for material type:", err);
+      // Colors fetch failure - color selector will be empty
     }
   };
 
@@ -797,7 +796,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         });
 
         if (!bomRes.ok) {
-          console.warn("BOM creation failed, but item was created");
+          // BOM creation failed but item was created - user can create BOM manually later
         }
       }
 
@@ -829,16 +828,14 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         });
 
         if (!routingRes.ok) {
-          console.warn("Routing creation failed, but item was created");
+          // Routing creation failed but item was created - user can create routing manually later
         }
       }
 
       // 4. Upload images if any (endpoint TBD - store for later)
       if (productImages.length > 0) {
         // TODO: Implement image upload when backend endpoint is ready
-        console.log(
-          `${productImages.length} images ready for upload for product ${createdItem.id}`
-        );
+        // Images are stored but not uploaded yet
       }
 
       // 5. Add to line items

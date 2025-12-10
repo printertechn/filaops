@@ -6,12 +6,12 @@ from typing import List, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, func
-import logging
 import csv
 import io
 
 from decimal import Decimal
 from app.db.session import get_db
+from app.logging_config import get_logger
 from app.models import Product, ItemCategory, Inventory, BOM, BOMLine
 from app.models.inventory import InventoryLocation
 from app.models.manufacturing import Routing
@@ -35,7 +35,7 @@ from app.schemas.item import (
 )
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Default pricing markup (from quoter: PLA/PETG=3.5x, ABS/ASA=4.0x, TPU=4.5x)
 # Using 3.5x as default since PLA is most common

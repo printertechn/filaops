@@ -5,8 +5,7 @@
  * Can be used from item detail pages or standalone.
  */
 import { useState, useEffect } from "react";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../config/api";
 
 export default function BOMEditor({
   isOpen,
@@ -59,7 +58,7 @@ export default function BOMEditor({
         setLines(data.lines || []);
       }
     } catch (err) {
-      console.error("Failed to fetch BOM:", err);
+      // BOM fetch failure - will show empty editor
     }
   };
 
@@ -81,7 +80,7 @@ export default function BOMEditor({
         setLines([]);
       }
     } catch (err) {
-      console.error("Failed to fetch BOM:", err);
+      // BOM fetch failure - will show empty editor
     }
   };
 
@@ -98,7 +97,7 @@ export default function BOMEditor({
         setComponents(data.items || []);
       }
     } catch (err) {
-      console.error("Failed to fetch components:", err);
+      // Components fetch failure is non-critical - component selector will be empty
     }
   };
 
@@ -112,7 +111,7 @@ export default function BOMEditor({
         setMaterials(data.items || []);
       }
     } catch (err) {
-      console.error("Failed to fetch materials:", err);
+      // Materials fetch failure is non-critical - material selector will be empty
     }
   };
 

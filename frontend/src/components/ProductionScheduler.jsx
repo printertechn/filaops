@@ -17,8 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useFeatureFlags } from "../hooks/useFeatureFlags";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../config/api";
 
 /**
  * Production Scheduler - Gantt/Calendar View with Drag-and-Drop
@@ -85,10 +84,7 @@ export default function ProductionScheduler({ onScheduleUpdate }) {
             );
           }
         } catch (err) {
-          console.warn(
-            `Failed to fetch resources for work center ${wc.id}:`,
-            err
-          );
+          // Failed to fetch resources for work center - will skip this work center
         }
       }
 

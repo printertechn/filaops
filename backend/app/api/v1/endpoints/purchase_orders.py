@@ -7,11 +7,11 @@ from datetime import datetime, date
 from decimal import Decimal
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, desc
-import logging
 import os
 import tempfile
 
 from app.db.session import get_db
+from app.logging_config import get_logger
 from app.services.google_drive import get_drive_service
 from app.models.vendor import Vendor
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
@@ -33,7 +33,7 @@ from app.schemas.purchasing import (
 )
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _generate_po_number(db: Session) -> str:

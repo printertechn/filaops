@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import ProductionSchedulingModal from "../../components/ProductionSchedulingModal";
 import ProductionScheduler from "../../components/ProductionScheduler";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../../config/api";
 
 export default function AdminProduction() {
   const [productionOrders, setProductionOrders] = useState([]);
@@ -75,7 +74,7 @@ export default function AdminProduction() {
         setProducts(data.items || data || []);
       }
     } catch (err) {
-      console.error("Failed to fetch products:", err);
+      // Products fetch failure is non-critical - product selector will just be empty
     }
   }, [token]);
 
@@ -146,7 +145,7 @@ export default function AdminProduction() {
 
       const action = actionEndpoints[newStatus];
       if (!action) {
-        console.error("Unknown status transition:", newStatus);
+        alert(`Invalid status transition: ${newStatus}`);
         return;
       }
 
@@ -164,11 +163,11 @@ export default function AdminProduction() {
       if (res.ok) {
         fetchProductionOrders();
       } else {
-        const error = await res.json();
-        console.error("Status update failed:", error.detail || error);
+        const errorData = await res.json();
+        alert(`Failed to update status: ${errorData.detail || "Unknown error"}`);
       }
     } catch (err) {
-      console.error("Failed to update status:", err);
+      alert(`Failed to update status: ${err.message || "Network error"}`);
     }
   };
 

@@ -6,13 +6,13 @@ from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
 from sqlalchemy.orm import Session
-import logging
 
 from app.db.session import get_db
 from app.models.product import Product
+from app.logging_config import get_logger
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class ProductCreate(BaseModel):
     """Create product request"""

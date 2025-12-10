@@ -5,8 +5,7 @@
  * Can be used from item detail pages or standalone.
  */
 import { useState, useEffect } from "react";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../config/api";
 
 export default function RoutingEditor({
   isOpen,
@@ -66,7 +65,7 @@ export default function RoutingEditor({
         setOperations(data.operations || []);
       }
     } catch (err) {
-      console.error("Failed to fetch routing:", err);
+      // Routing fetch failure - will show empty editor
     }
   };
 
@@ -90,7 +89,7 @@ export default function RoutingEditor({
         setOperations([]);
       }
     } catch (err) {
-      console.error("Failed to fetch routing:", err);
+      // Routing fetch failure - will show empty editor
     }
   };
 
@@ -107,7 +106,7 @@ export default function RoutingEditor({
         setWorkCenters(data || []);
       }
     } catch (err) {
-      console.error("Failed to fetch work centers:", err);
+      // Work centers fetch failure is non-critical - work center selector will be empty
     }
   };
 
@@ -124,7 +123,7 @@ export default function RoutingEditor({
         setTemplates(data || []);
       }
     } catch (err) {
-      console.error("Failed to fetch templates:", err);
+      // Templates fetch failure is non-critical - templates list will be empty
     }
   };
 

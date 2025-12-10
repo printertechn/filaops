@@ -77,7 +77,7 @@ export default function AdminInventoryTransactions() {
         setProducts(data.items || []);
       }
     } catch (err) {
-      console.error("Failed to fetch products:", err);
+      // Products fetch failure is non-critical - product selector will be empty
     }
   };
 
@@ -95,7 +95,7 @@ export default function AdminInventoryTransactions() {
         setLocations(data);
       }
     } catch (err) {
-      console.error("Failed to fetch locations:", err);
+      // Locations fetch failure is non-critical - location selector will be empty
     }
   };
 

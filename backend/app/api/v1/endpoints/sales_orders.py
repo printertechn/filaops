@@ -18,6 +18,7 @@ from app.models.sales_order import SalesOrder, SalesOrderLine
 from app.models.production_order import ProductionOrder
 from app.models.product import Product
 from app.models.bom import BOM
+from app.logging_config import get_logger
 from app.schemas.sales_order import (
     SalesOrderCreate,
     SalesOrderConvert,
@@ -412,7 +413,16 @@ async def convert_quote_to_sales_order(
     db.add(production_order)
 
     # Log the creation
-    print(f"[PRODUCTION] Created {po_code} for SO {order_number}, Product ID: {quote.product_id}")
+    logger = get_logger(__name__)
+    logger.info(
+        "Production order created from quote",
+        extra={
+            "production_order_code": po_code,
+            "sales_order_number": order_number,
+            "product_id": quote.product_id,
+            "quote_id": quote.id
+        }
+    )
 
     db.commit()
     db.refresh(sales_order)

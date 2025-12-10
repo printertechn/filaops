@@ -5,7 +5,6 @@ Handles local filesystem storage with Google Cloud Storage backup
 """
 import os
 import hashlib
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
@@ -14,8 +13,9 @@ from uuid import uuid4
 from fastapi import UploadFile
 
 from app.core.config import settings
+from app.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FileStorageService:

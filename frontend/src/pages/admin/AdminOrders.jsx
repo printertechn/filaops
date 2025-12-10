@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import SalesOrderWizard from "../../components/SalesOrderWizard";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../../config/api";
 
 const statusColors = {
   pending: "bg-yellow-500/20 text-yellow-400",
@@ -95,9 +94,12 @@ export default function AdminOrders() {
           const updated = await res.json();
           setSelectedOrder(updated);
         }
+      } else {
+        const errorData = await res.json();
+        alert(`Failed to update order status: ${errorData.detail || "Unknown error"}`);
       }
     } catch (err) {
-      console.error("Failed to update status:", err);
+      alert(`Failed to update order status: ${err.message || "Network error"}`);
     }
   };
 

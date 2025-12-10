@@ -14,3 +14,53 @@ markers = [
     "integration: Integration tests (may require database)",
     "slow: Slow-running tests",
 ]
+
+# ============================================================================
+# MyPy Type Checking Configuration
+# ============================================================================
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Gradually enable as code is typed
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+
+# SQLAlchemy ORM type inference workarounds
+plugins = ["sqlalchemy.ext.mypy.plugin"]
+ignore_missing_imports = false
+
+# Exclude patterns
+exclude = [
+    "migrations/",
+    "tests/",
+    "*/__pycache__",
+]
+
+# Per-module overrides for known issues
+# Note: SQLAlchemy ORM models use descriptor protocols that mypy doesn't fully understand.
+# Attributes like `user.id` are actually `Column[int]` types at definition time,
+# but behave as `int` at runtime. These are false positives that work correctly.
+[[tool.mypy.overrides]]
+module = [
+    "app.models.*",
+    "app.db.base",
+]
+# SQLAlchemy Column types work at runtime but mypy needs help
+ignore_errors = true
+ignore_missing_imports = true
+
+# Allow untyped calls in endpoints (many use SQLAlchemy ORM which has type inference limitations)
+[[tool.mypy.overrides]]
+module = "app.api.*"
+disallow_untyped_calls = false
+
+# Allow untyped calls in test files
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false

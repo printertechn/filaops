@@ -52,7 +52,6 @@ export default function OrderDetail() {
 
       if (!res.ok) {
         const errorText = await res.text();
-        console.error("Order fetch failed:", res.status, res.statusText);
         throw new Error(
           `Failed to fetch order: ${res.status} ${res.statusText}`
         );
@@ -87,14 +86,12 @@ export default function OrderDetail() {
             }
           }
         } catch (err) {
-          console.error("Failed to fetch quote:", err);
+          // Quote fetch failure is non-critical - BOM explosion will just be skipped
         }
       } else if (data.product_id) {
         await explodeBOM(data.product_id, data.quantity);
       }
     } catch (err) {
-      console.error("Error fetching order:", err);
-
       if (err.message.includes("Failed to fetch")) {
         setError(
           `Network error: Cannot connect to backend at ${API_URL}. ` +
@@ -122,7 +119,7 @@ export default function OrderDetail() {
         setProductionOrders(data.items || data || []);
       }
     } catch (err) {
-      console.error("Failed to fetch production orders:", err);
+      // Production orders fetch failure is non-critical - production list will just be empty
     }
   };
 
@@ -193,7 +190,7 @@ export default function OrderDetail() {
           }));
           setMaterialRequirements(requirements);
         } else {
-          console.error("BOM explosion failed:", bomRes.status);
+          // BOM explosion failure - material requirements will be empty
         }
       }
 
@@ -228,7 +225,7 @@ export default function OrderDetail() {
         // Routing is optional - don't fail
       }
     } catch (err) {
-      console.error("Failed to explode BOM:", err);
+      // BOM explosion failure - material requirements section will be empty
     } finally {
       setExploding(false);
     }

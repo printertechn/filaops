@@ -8,6 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.v1 import router as api_v1_router
 from app.core.config import settings
@@ -17,6 +21,9 @@ from app.logging_config import setup_logging, get_logger
 # Setup structured logging
 setup_logging()
 logger = get_logger(__name__)
+
+# Rate limiter - shared across all endpoints
+limiter = Limiter(key_func=get_remote_address)
 
 
 def init_database():
@@ -99,6 +106,13 @@ app = FastAPI(
     version=settings.VERSION,
     lifespan=lifespan,
 )
+
+# Set up rate limiter state
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Rate limiting middleware (must be before CORS)
+app.add_middleware(SlowAPIMiddleware)
 
 # CORS middleware
 app.add_middleware(
@@ -188,7 +202,12 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Include API routes
+# Set limiter reference in auth module BEFORE including routes
+# This ensures decorators have access to the limiter instance
+from app.api.v1.endpoints import auth
+auth.limiter = limiter
+
+# Include API routes (must be after limiter setup)
 app.include_router(api_v1_router, prefix="/api/v1")
 
 @app.get("/")
