@@ -166,6 +166,19 @@ export default function AdminOrders() {
     return flow[currentStatus];
   };
 
+  const getStatusLabel = (status) => {
+    const labels = {
+      pending: "Pending",
+      confirmed: "Confirmed",
+      in_production: "In Production",
+      ready_to_ship: "Ready to Ship",
+      shipped: "Shipped",
+      completed: "Completed",
+      cancelled: "Cancelled",
+    };
+    return labels[status] || status?.replace(/_/g, " ");
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -338,8 +351,9 @@ export default function AdminOrders() {
                           )
                         }
                         className="text-green-400 hover:text-green-300 text-sm"
+                        title={`Advance to: ${getStatusLabel(getNextStatus(order.status))}`}
                       >
-                        Advance
+                        → {getStatusLabel(getNextStatus(order.status))}
                       </button>
                     )}
                   </td>

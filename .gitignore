@@ -160,9 +160,9 @@ cli_config_fixed.json
 # Batch files (local only)
 *.bat
 
-# Temp HTML
+# Temp HTML (but NOT frontend/index.html which is required for Vite)
 *.html
-!frontend/
+!frontend/index.html
 
 # ===========================================
 # SECURITY - Prevent accidental secret commits

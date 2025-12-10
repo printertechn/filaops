@@ -31,6 +31,8 @@ export default function AdminManufacturing() {
   const [showRoutingModal, setShowRoutingModal] = useState(false);
   const [editingWorkCenter, setEditingWorkCenter] = useState(null);
   const [editingResource, setEditingResource] = useState(null);
+  const [editingRouting, setEditingRouting] = useState(null);
+  const [routingProductId, setRoutingProductId] = useState(null);
   const [selectedWorkCenter, setSelectedWorkCenter] = useState(null);
 
   const token = localStorage.getItem("adminToken");

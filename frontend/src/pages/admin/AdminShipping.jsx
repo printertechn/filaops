@@ -415,10 +415,19 @@ export default function AdminShipping() {
                     </p>
                   </div>
                 ) : (
-                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                    <p className="text-yellow-400 text-sm">
-                      No shipping address on file
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+                    <p className="text-red-400 text-sm font-medium mb-1">
+                      ⚠ Shipping Address Required
                     </p>
+                    <p className="text-red-300 text-xs mb-2">
+                      Cannot create shipping label without a valid shipping address.
+                    </p>
+                    <button
+                      onClick={() => navigate(`/admin/orders/${selectedOrder.id}`)}
+                      className="text-xs text-blue-400 hover:text-blue-300 underline"
+                    >
+                      Edit Order to Add Address →
+                    </button>
                   </div>
                 )}
 
