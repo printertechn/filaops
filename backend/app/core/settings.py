@@ -6,7 +6,7 @@ All settings can be overridden via environment variables or .env file.
 """
 from functools import lru_cache
 from typing import Optional, List
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -97,6 +97,13 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
+
+    @model_validator(mode="after")
+    def add_frontend_url_to_cors(self):
+        """Automatically add FRONTEND_URL to ALLOWED_ORIGINS for remote access."""
+        if self.FRONTEND_URL and self.FRONTEND_URL not in self.ALLOWED_ORIGINS:
+            self.ALLOWED_ORIGINS = list(self.ALLOWED_ORIGINS) + [self.FRONTEND_URL]
+        return self
 
     # ===================
     # Bambu Print Suite Integration
