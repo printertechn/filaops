@@ -28,43 +28,23 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 
 def create_tables(engine):
-    """Create necessary tables for testing"""
-    from app.models.user import User, RefreshToken
-    from app.models.product import Product
-    from app.models.bom import BOM, BOMLine
-    from app.models.quote import Quote
-    from app.models.sales_order import SalesOrder
-    from app.models.production_order import ProductionOrder
+    """Create all tables for testing using SQLAlchemy metadata"""
+    # Import all models to ensure they're registered with Base
+    from app.models.user import User, RefreshToken  # noqa: F401
+    from app.models.product import Product  # noqa: F401
+    from app.models.bom import BOM, BOMLine  # noqa: F401
+    from app.models.quote import Quote  # noqa: F401
+    from app.models.sales_order import SalesOrder  # noqa: F401
+    from app.models.production_order import ProductionOrder  # noqa: F401
 
-    # Create tables
-    User.__table__.create(bind=engine, checkfirst=True)
-    RefreshToken.__table__.create(bind=engine, checkfirst=True)
-    Product.__table__.create(bind=engine, checkfirst=True)
-    BOM.__table__.create(bind=engine, checkfirst=True)
-    BOMLine.__table__.create(bind=engine, checkfirst=True)
-    Quote.__table__.create(bind=engine, checkfirst=True)
-    SalesOrder.__table__.create(bind=engine, checkfirst=True)
-    ProductionOrder.__table__.create(bind=engine, checkfirst=True)
+    # Create all tables at once - handles foreign keys and self-references properly
+    Base.metadata.create_all(bind=engine)
 
 
 def drop_tables(engine):
     """Drop all tables after testing"""
-    from app.models.user import User, RefreshToken
-    from app.models.product import Product
-    from app.models.bom import BOM, BOMLine
-    from app.models.quote import Quote
-    from app.models.sales_order import SalesOrder
-    from app.models.production_order import ProductionOrder
-
-    # Drop tables in reverse order of dependencies
-    BOMLine.__table__.drop(bind=engine, checkfirst=True)
-    BOM.__table__.drop(bind=engine, checkfirst=True)
-    ProductionOrder.__table__.drop(bind=engine, checkfirst=True)
-    SalesOrder.__table__.drop(bind=engine, checkfirst=True)
-    Quote.__table__.drop(bind=engine, checkfirst=True)
-    Product.__table__.drop(bind=engine, checkfirst=True)
-    RefreshToken.__table__.drop(bind=engine, checkfirst=True)
-    User.__table__.drop(bind=engine, checkfirst=True)
+    # Drop all tables at once - handles dependencies properly
+    Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture
