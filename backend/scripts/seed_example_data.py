@@ -596,9 +596,7 @@ def seed_materials(db: Session):
                 link = MaterialColor(
                     material_type_id=mt.id,
                     color_id=color.id,
-                    is_customer_visible=True,
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow()
+                    is_customer_visible=True
                 )
                 db.add(link)
                 created_links += 1

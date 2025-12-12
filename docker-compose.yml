@@ -97,6 +97,7 @@ services:
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
       - DEBUG=${DEBUG:-false}
       - ENVIRONMENT=${ENVIRONMENT:-production}
+      - TIER=${TIER:-open}
     ports:
       - "8000:8000"
     volumes:
