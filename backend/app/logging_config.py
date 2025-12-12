@@ -1,5 +1,5 @@
 """
-BLB3D ERP - Structured Logging Configuration
+FilaOps ERP - Structured Logging Configuration
 
 Provides JSON-formatted logging for log aggregation and compliance.
 Includes separate audit logging for business events.

@@ -1,5 +1,5 @@
 """
-BLB3D ERP - Configuration Management with pydantic-settings
+FilaOps ERP - Configuration Management with pydantic-settings
 
 Provides validated, type-safe configuration from environment variables.
 All settings can be overridden via environment variables or .env file.

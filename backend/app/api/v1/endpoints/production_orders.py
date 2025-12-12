@@ -22,6 +22,7 @@ from app.models import (
     SalesOrder,
 )
 from app.models.manufacturing import Routing, RoutingOperation, WorkCenter, Resource
+from app.services.inventory_service import process_production_completion
 from app.schemas.production_order import (
     ProductionOrderCreate,
     ProductionOrderUpdate,
@@ -542,6 +543,17 @@ async def complete_production_order(
                 manufactured_at=today,
             )
             db.add(serial)
+
+    # Process inventory transactions:
+    # 1. Consume raw materials based on BOM (production stage items)
+    # 2. Add finished goods to inventory
+    qty_completed = order.quantity_completed or order.quantity_ordered
+    process_production_completion(
+        db=db,
+        production_order=order,
+        quantity_completed=qty_completed,
+        created_by=current_user.email if current_user else None,
+    )
 
     db.commit()
     db.refresh(order)

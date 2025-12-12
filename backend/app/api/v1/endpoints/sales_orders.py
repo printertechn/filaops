@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import List, Optional
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -34,6 +34,7 @@ from app.schemas.sales_order import (
 )
 from app.api.v1.endpoints.auth import get_current_user
 from app.models.manufacturing import Routing
+from app.services.inventory_service import process_shipment
 
 router = APIRouter(prefix="/sales-orders", tags=["Sales Orders"])
 
@@ -441,6 +442,7 @@ async def get_user_sales_orders(
     skip: int = 0,
     limit: int = 50,
     status_filter: Optional[str] = None,
+    status: Optional[List[str]] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -450,7 +452,8 @@ async def get_user_sales_orders(
     Query parameters:
     - skip: Pagination offset (default: 0)
     - limit: Max results (default: 50, max: 100)
-    - status_filter: Filter by status (pending, confirmed, in_production, etc.)
+    - status_filter: Filter by single status (deprecated, use status instead)
+    - status: Filter by status(es) - can be repeated for multiple values
 
     Returns:
         List of sales orders ordered by creation date (newest first)
@@ -466,7 +469,10 @@ async def get_user_sales_orders(
     if current_user.account_type != "admin":
         query = query.filter(SalesOrder.user_id == current_user.id)
 
-    if status_filter:
+    # Support multiple status values (new) or single status_filter (legacy)
+    if status:
+        query = query.filter(SalesOrder.status.in_(status))
+    elif status_filter:
         query = query.filter(SalesOrder.status == status_filter)
 
     orders = (
@@ -852,6 +858,15 @@ async def ship_order(
     order.shipped_at = datetime.utcnow()
     order.status = "shipped"
     order.updated_at = datetime.utcnow()
+
+    # Process inventory transactions:
+    # 1. Consume packaging materials (shipping stage BOM items)
+    # 2. Issue finished goods from inventory
+    process_shipment(
+        db=db,
+        sales_order=order,
+        created_by=current_user.email if current_user else None,
+    )
 
     db.commit()
     db.refresh(order)

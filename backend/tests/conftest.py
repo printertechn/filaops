@@ -1,5 +1,5 @@
 """
-Shared test fixtures for BLB3D ERP tests
+Shared test fixtures for FilaOps ERP tests
 
 Provides database setup, client creation, and user fixtures
 """

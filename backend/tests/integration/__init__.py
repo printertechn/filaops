@@ -1,3 +1,3 @@
 """
-Integration tests for BLB3D ERP
+Integration tests for FilaOps ERP
 """

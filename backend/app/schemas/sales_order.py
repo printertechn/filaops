@@ -136,13 +136,13 @@ class SalesOrderListResponse(SalesOrderBase):
 class SalesOrderLineResponse(BaseModel):
     """Sales order line item response"""
     id: int
-    line_number: int
     product_id: int
     product_sku: Optional[str] = None
     product_name: Optional[str] = None
-    quantity: int
+    quantity: Decimal
     unit_price: Decimal
-    total_price: Decimal
+    total: Decimal  # Matches model field name
+    discount: Optional[Decimal] = Decimal("0")
     notes: Optional[str] = None
 
     class Config:

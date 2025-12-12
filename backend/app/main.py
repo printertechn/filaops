@@ -1,5 +1,5 @@
 """
-BLB3D ERP - Main FastAPI Application
+FilaOps ERP - Main FastAPI Application
 """
 from contextlib import asynccontextmanager
 
@@ -243,7 +243,7 @@ app.include_router(api_v1_router, prefix="/api/v1")
 async def root():
     """Root endpoint"""
     return {
-        "message": "BLB3D ERP API",
+        "message": "FilaOps ERP API",
         "version": "1.0.0",
         "status": "online"
     }

@@ -1,5 +1,5 @@
 """
-BLB3D ERP - Custom Exception Hierarchy
+FilaOps ERP - Custom Exception Hierarchy
 
 Provides structured, typed exceptions with error codes for consistent
 error handling across the application.
@@ -18,7 +18,7 @@ from typing import Any, Dict, Optional
 
 class BLB3DException(Exception):
     """
-    Base exception for all BLB3D ERP errors.
+    Base exception for all FilaOps ERP errors.
 
     Attributes:
         message: Human-readable error message

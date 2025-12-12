@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import SalesOrderWizard from "../../components/SalesOrderWizard";
 import { API_URL } from "../../config/api";
 import { useToast } from "../../components/Toast";
@@ -23,6 +23,7 @@ const paymentColors = {
 
 export default function AdminOrders() {
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,9 +49,10 @@ export default function AdminOrders() {
     }
   }, []);
 
+  // Fetch orders on mount, when filters change, or when navigating back to this page
   useEffect(() => {
     fetchOrders();
-  }, [filters.status]);
+  }, [filters.status, location.key]);
 
   const fetchOrders = async () => {
     if (!token) return;

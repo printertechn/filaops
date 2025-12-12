@@ -1,5 +1,5 @@
 """
-Configuration settings for BLB3D ERP
+Configuration settings for FilaOps ERP
 
 This module provides backward compatibility with the original config.py interface.
 The actual settings implementation is in settings.py using pydantic-settings.
