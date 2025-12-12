@@ -100,6 +100,8 @@ async def get_current_user(
 
 # Re-export from deps for backwards compatibility
 # NOTE: Prefer importing from app.api.v1.deps directly
+from app.api.v1.deps import get_current_admin_user as get_current_admin_user  # noqa: F401
+from app.api.v1.deps import get_current_staff_user as get_current_staff_user  # noqa: F401
 
 
 # ============================================================================
