@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { API_URL } from "../../config/api";
 import { useToast } from "../../components/Toast";
+import StatCard from "../../components/StatCard";
 
 // Status options
 const STATUS_OPTIONS = [
@@ -209,27 +210,15 @@ export default function AdminCustomers() {
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-sm">Total Customers</p>
-          <p className="text-2xl font-bold text-white">{stats.total}</p>
-        </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-sm">Active</p>
-          <p className="text-2xl font-bold text-green-400">{stats.active}</p>
-        </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-sm">With Orders</p>
-          <p className="text-2xl font-bold text-blue-400">{stats.withOrders}</p>
-        </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-sm">Total Revenue</p>
-          <p className="text-2xl font-bold text-emerald-400">
-            $
-            {stats.totalRevenue.toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-            })}
-          </p>
-        </div>
+        <StatCard variant="simple" title="Total Customers" value={stats.total} color="neutral" />
+        <StatCard variant="simple" title="Active" value={stats.active} color="success" />
+        <StatCard variant="simple" title="With Orders" value={stats.withOrders} color="secondary" />
+        <StatCard
+          variant="simple"
+          title="Total Revenue"
+          value={`$${stats.totalRevenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
+          color="primary"
+        />
       </div>
 
       {/* Filters */}

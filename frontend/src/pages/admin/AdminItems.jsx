@@ -3,6 +3,7 @@ import ItemForm from "../../components/ItemForm";
 import MaterialForm from "../../components/MaterialForm";
 import BOMEditor from "../../components/BOMEditor";
 import RoutingEditor from "../../components/RoutingEditor";
+import StatCard from "../../components/StatCard";
 import { API_URL } from "../../config/api";
 import { useToast } from "../../components/Toast";
 
@@ -518,40 +519,12 @@ export default function AdminItems() {
 
         {/* Stats */}
         <div className="grid grid-cols-6 gap-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-400 text-sm">Total Items</p>
-            <p className="text-2xl font-bold text-white">{stats.total}</p>
-          </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-400 text-sm">Finished Goods</p>
-            <p className="text-2xl font-bold text-blue-400">
-              {stats.finishedGoods}
-            </p>
-          </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-400 text-sm">Components</p>
-            <p className="text-2xl font-bold text-purple-400">
-              {stats.components}
-            </p>
-          </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-400 text-sm">Filaments</p>
-            <p className="text-2xl font-bold text-orange-400">
-              {stats.filaments}
-            </p>
-          </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-400 text-sm">Supplies</p>
-            <p className="text-2xl font-bold text-yellow-400">
-              {stats.supplies}
-            </p>
-          </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-400 text-sm">Needs Reorder</p>
-            <p className="text-2xl font-bold text-red-400">
-              {stats.needsReorder}
-            </p>
-          </div>
+          <StatCard variant="simple" title="Total Items" value={stats.total} color="neutral" />
+          <StatCard variant="simple" title="Finished Goods" value={stats.finishedGoods} color="primary" />
+          <StatCard variant="simple" title="Components" value={stats.components} color="secondary" />
+          <StatCard variant="simple" title="Filaments" value={stats.filaments} color="primary" />
+          <StatCard variant="simple" title="Supplies" value={stats.supplies} color="warning" />
+          <StatCard variant="simple" title="Needs Reorder" value={stats.needsReorder} color="danger" />
         </div>
 
         {/* Error */}

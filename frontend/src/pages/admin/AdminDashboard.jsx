@@ -1,33 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { API_URL } from "../../config/api";
-
-// Stat Card Component
-function StatCard({ title, value, subtitle, color, icon }) {
-  const colorClasses = {
-    blue: "from-blue-600/20 to-blue-600/5 border-blue-500/30",
-    green: "from-green-600/20 to-green-600/5 border-green-500/30",
-    purple: "from-purple-600/20 to-purple-600/5 border-purple-500/30",
-    orange: "from-orange-600/20 to-orange-600/5 border-orange-500/30",
-    red: "from-red-600/20 to-red-600/5 border-red-500/30",
-    cyan: "from-cyan-600/20 to-cyan-600/5 border-cyan-500/30",
-  };
-
-  return (
-    <div
-      className={`bg-gradient-to-br ${colorClasses[color]} border rounded-xl p-6`}
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-gray-400 text-sm font-medium">{title}</p>
-          <p className="text-3xl font-bold text-white mt-1">{value}</p>
-          {subtitle && <p className="text-gray-500 text-xs mt-1">{subtitle}</p>}
-        </div>
-        <div className="text-gray-500">{icon}</div>
-      </div>
-    </div>
-  );
-}
+import StatCard from "../../components/StatCard";
 
 // Module Card Component
 function ModuleCard({ title, description, to, icon, stats }) {
