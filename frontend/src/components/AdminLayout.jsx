@@ -286,44 +286,50 @@ const SettingsIcon = () => (
   </svg>
 );
 
-const navItems = [
-  { path: "/admin", label: "Dashboard", icon: DashboardIcon, end: true },
-  { path: "/admin/orders", label: "Orders", icon: OrdersIcon },
-  { path: "/admin/quotes", label: "Quotes", icon: QuotesIcon },
-  { path: "/admin/payments", label: "Payments", icon: PaymentsIcon, adminOnly: true },
+const navGroups = [
   {
-    path: "/admin/orders/import",
-    label: "Import Orders",
-    icon: MaterialImportIcon,
+    label: null, // No header for dashboard
+    items: [
+      { path: "/admin", label: "Dashboard", icon: DashboardIcon, end: true },
+    ],
+  },
+  {
+    label: "SALES",
+    items: [
+      { path: "/admin/orders", label: "Orders", icon: OrdersIcon },
+      { path: "/admin/quotes", label: "Quotes", icon: QuotesIcon },
+      { path: "/admin/payments", label: "Payments", icon: PaymentsIcon, adminOnly: true },
+      { path: "/admin/customers", label: "Customers", icon: CustomersIcon, adminOnly: true },
+    ],
+  },
+  {
+    label: "INVENTORY",
+    items: [
+      { path: "/admin/items", label: "Items", icon: ItemsIcon },
+      { path: "/admin/materials/import", label: "Import Materials", icon: MaterialImportIcon, adminOnly: true },
+      { path: "/admin/bom", label: "Bill of Materials", icon: BOMIcon },
+      { path: "/admin/inventory/transactions", label: "Transactions", icon: InventoryIcon, adminOnly: true },
+    ],
+  },
+  {
+    label: "OPERATIONS",
+    items: [
+      { path: "/admin/production", label: "Production", icon: ProductionIcon },
+      { path: "/admin/manufacturing", label: "Manufacturing", icon: ManufacturingIcon },
+      { path: "/admin/purchasing", label: "Purchasing", icon: PurchasingIcon },
+      { path: "/admin/shipping", label: "Shipping", icon: ShippingIcon },
+    ],
+  },
+  {
+    label: "ADMIN",
     adminOnly: true,
+    items: [
+      { path: "/admin/orders/import", label: "Import Orders", icon: MaterialImportIcon, adminOnly: true },
+      { path: "/admin/users", label: "Team Members", icon: CustomersIcon, adminOnly: true },
+      { path: "/admin/analytics", label: "Analytics", icon: AnalyticsIcon, adminOnly: true },
+      { path: "/admin/settings", label: "Settings", icon: SettingsIcon, adminOnly: true },
+    ],
   },
-  { path: "/admin/customers", label: "Customers", icon: CustomersIcon, adminOnly: true },
-  { path: "/admin/production", label: "Production", icon: ProductionIcon },
-  { path: "/admin/items", label: "Items", icon: ItemsIcon },
-  {
-    path: "/admin/materials/import",
-    label: "Import Materials",
-    icon: MaterialImportIcon,
-    adminOnly: true,
-  },
-  { path: "/admin/bom", label: "Bill of Materials", icon: BOMIcon },
-  { path: "/admin/purchasing", label: "Purchasing", icon: PurchasingIcon },
-  {
-    path: "/admin/manufacturing",
-    label: "Manufacturing",
-    icon: ManufacturingIcon,
-  },
-  {
-    path: "/admin/inventory/transactions",
-    label: "Inventory Transactions",
-    icon: InventoryIcon,
-    adminOnly: true,
-  },
-  { path: "/admin/shipping", label: "Shipping", icon: ShippingIcon },
-  { path: "/admin/analytics", label: "Analytics", icon: AnalyticsIcon, adminOnly: true },
-  { path: "/admin/users", label: "Team Members", icon: CustomersIcon, adminOnly: true },
-  { path: "/admin/settings", label: "Settings", icon: SettingsIcon, adminOnly: true },
-  // { path: "/admin/license", label: "License", icon: LicenseIcon, adminOnly: true },  // Disabled until ready
 ];
 
 export default function AdminLayout() {
@@ -337,9 +343,15 @@ export default function AdminLayout() {
 
   // Filter nav items based on user role
   const isAdmin = user?.account_type === "admin";
-  const filteredNavItems = navItems.filter(
-    (item) => !item.adminOnly || isAdmin
-  );
+
+  // Filter groups and items based on admin status
+  const filteredNavGroups = navGroups
+    .filter((group) => !group.adminOnly || isAdmin)
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !item.adminOnly || isAdmin),
+    }))
+    .filter((group) => group.items.length > 0);
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -402,24 +414,35 @@ export default function AdminLayout() {
                   </svg>
                 </button>
               </div>
-              <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-                {filteredNavItems.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    end={item.end}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
-                        isActive
-                          ? "bg-gradient-to-r from-emerald-600/20 to-cyan-600/20 text-white border border-emerald-500/30"
-                          : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                      }`
-                    }
-                  >
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </NavLink>
+              <nav className="flex-1 p-4 overflow-y-auto">
+                {filteredNavGroups.map((group, groupIndex) => (
+                  <div key={groupIndex} className={group.label ? "mt-4" : ""}>
+                    {group.label && (
+                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        {group.label}
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      {group.items.map((item) => (
+                        <NavLink
+                          key={item.path}
+                          to={item.path}
+                          end={item.end}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={({ isActive }) =>
+                            `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                              isActive
+                                ? "bg-gradient-to-r from-emerald-600/20 to-cyan-600/20 text-white border border-emerald-500/30"
+                                : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                            }`
+                          }
+                        >
+                          <item.icon />
+                          <span>{item.label}</span>
+                        </NavLink>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </nav>
             </aside>
@@ -448,23 +471,37 @@ export default function AdminLayout() {
               <MenuIcon />
             </button>
           </div>
-          <nav className="flex-1 p-4 space-y-2">
-            {filteredNavItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.end}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
-                    isActive
-                      ? "bg-gradient-to-r from-emerald-600/20 to-cyan-600/20 text-white border border-emerald-500/30"
-                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                  }`
-                }
-              >
-                <item.icon />
-                {sidebarOpen && <span>{item.label}</span>}
-              </NavLink>
+          <nav className="flex-1 p-4 overflow-y-auto">
+            {filteredNavGroups.map((group, groupIndex) => (
+              <div key={groupIndex} className={group.label ? "mt-4" : ""}>
+                {group.label && sidebarOpen && (
+                  <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    {group.label}
+                  </div>
+                )}
+                {/* When collapsed, add spacing where header would be */}
+                {group.label && !sidebarOpen && <div className="h-4" />}
+                <div className="space-y-1">
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      end={item.end}
+                      title={!sidebarOpen ? item.label : undefined}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                          isActive
+                            ? "bg-gradient-to-r from-emerald-600/20 to-cyan-600/20 text-white border border-emerald-500/30"
+                            : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                        } ${!sidebarOpen ? "justify-center" : ""}`
+                      }
+                    >
+                      <item.icon />
+                      {sidebarOpen && <span>{item.label}</span>}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
         </aside>
