@@ -403,33 +403,31 @@ def _build_resource_response(r: Resource, wc: WorkCenter) -> ResourceResponse:
 # Bambu Print Suite Sync
 # ============================================================================
 
-# Hardcoded printer data from Bambu Print Suite config files
+# Example printer configuration - replace with your actual printer data
 # This maps serial numbers to friendly names, models, and IPs
+#
+# To configure your printers:
+# 1. Find your printer serial numbers in Bambu Studio or on the printer
+# 2. Get the access code from your printer's network settings
+# 3. Replace the example data below with your actual printer info
+#
+# SECURITY NOTE: For production deployments, consider moving this to
+# environment variables or a separate config file that's gitignored.
 BAMBU_PRINTERS = {
-    "01P00A441800676": {
-        "name": "Leonardo",
+    # Example printer - replace with your actual data
+    "SERIAL_NUMBER_HERE": {
+        "name": "Printer-1",
         "model": "P1S",
-        "ip": "10.0.0.140",
-        "access_code": "57108124",
+        "ip": "192.168.1.100",
+        "access_code": "12345678",
     },
-    "03919C452202053": {
-        "name": "Michelangelo",
-        "model": "A1",
-        "ip": "10.0.0.224",
-        "access_code": "28820913",
-    },
-    "03919C452202806": {
-        "name": "Donatello",
-        "model": "A1",
-        "ip": "10.0.0.191",
-        "access_code": "27880645",
-    },
-    "03919C441302283": {
-        "name": "Raphael",
-        "model": "A1",
-        "ip": "",  # Not in status file yet
-        "access_code": "41363670",
-    },
+    # Add more printers as needed:
+    # "ANOTHER_SERIAL": {
+    #     "name": "Printer-2",
+    #     "model": "A1",
+    #     "ip": "192.168.1.101",
+    #     "access_code": "87654321",
+    # },
 }
 
 
