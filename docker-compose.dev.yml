@@ -1,0 +1,156 @@
+# Development Environment - STANDALONE
+# =====================================
+# Use: docker-compose -f docker-compose.dev.yml up -d
+#
+# This is a COMPLETE STANDALONE compose file (not an override).
+# Production and Dev can run SIMULTANEOUSLY without conflict.
+#
+# Dev Environment:
+# - Frontend: http://localhost:5174
+# - Backend:  http://localhost:8001
+# - DB Port:  1434
+# - Redis:    6380
+
+name: filaops-dev
+
+services:
+  # ===================
+  # SQL Server Database (Dev)
+  # ===================
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: filaops-dev-db
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${DB_PASSWORD:-FilaOps2024!}
+      - MSSQL_PID=Express
+    ports:
+      - "1434:1433"
+    volumes:
+      - filaops-dev-db-data:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$${MSSQL_SA_PASSWORD}" -No -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - filaops-dev-network
+
+  # ===================
+  # Database Initialization (Dev)
+  # ===================
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: filaops-dev-db-init
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DB_PASSWORD=${DB_PASSWORD:-FilaOps2024!}
+    entrypoint: >
+      /bin/bash -c "
+        echo 'Waiting for SQL Server to be ready...'
+        sleep 5
+        echo 'Creating FilaOps_Dev database if not exists...'
+        /opt/mssql-tools18/bin/sqlcmd -S db -U sa -P \"$${DB_PASSWORD}\" -No -Q \"IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'FilaOps_Dev') CREATE DATABASE FilaOps_Dev\"
+        echo 'Database initialization complete!'
+      "
+    restart: "no"
+    networks:
+      - filaops-dev-network
+
+  # ===================
+  # Redis Cache (Dev)
+  # ===================
+  redis:
+    image: redis:7-alpine
+    container_name: filaops-dev-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - filaops-dev-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - filaops-dev-network
+
+  # ===================
+  # Backend API (Dev)
+  # ===================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: filaops-dev-backend
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      - DB_HOST=db
+      - DB_NAME=FilaOps_Dev
+      - DB_USER=sa
+      - DB_PASSWORD=${DB_PASSWORD:-FilaOps2024!}
+      - DB_TRUSTED_CONNECTION=false
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production-use-openssl-rand-hex-32}
+      - REDIS_URL=redis://redis:6379/0
+      - FRONTEND_URL=http://localhost:5174
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - TIER=${TIER:-open}
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./backend/app:/app/app:ro
+      - ./backend/migrations:/app/migrations:ro
+      - filaops-dev-uploads:/app/uploads
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - filaops-dev-network
+
+  # ===================
+  # Frontend (Dev)
+  # ===================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:8001
+    container_name: filaops-dev-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5174:80"
+    restart: unless-stopped
+    networks:
+      - filaops-dev-network
+
+volumes:
+  filaops-dev-db-data:
+    name: filaops-dev-db-data
+  filaops-dev-redis-data:
+    name: filaops-dev-redis-data
+  filaops-dev-uploads:
+    name: filaops-dev-uploads
+
+networks:
+  filaops-dev-network:
+    name: filaops-dev-network
