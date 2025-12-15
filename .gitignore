@@ -157,8 +157,15 @@ cli_config_fixed.json
 # Generated PDFs (regenerate from source)
 *.pdf
 
+# SOP Documents (local review before publishing)
+docs/sop/
+
 # Batch files (local only)
 *.bat
+
+# PowerShell scripts (local convenience)
+*.ps1
+!start-backend.ps1
 
 # Temp HTML (but NOT frontend/index.html which is required for Vite)
 *.html
@@ -308,7 +315,7 @@ TESTING_STRATEGY.md
 SESSION_HANDOFF.md
 *_HANDOFF*.md
 AI_CONTEXT.md
-CLAUDE.md
+# Note: CLAUDE.md is tracked - contains dev/prod environment safeguards
 
 # Phase and sprint planning (internal)
 PHASE_*.md
