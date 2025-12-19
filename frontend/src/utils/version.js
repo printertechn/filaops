@@ -2,14 +2,34 @@
  * Version utility functions
  */
 
+import { API_URL } from '../config/api';
+
 /**
- * Get current version from package.json
- * @returns {string} Current version (e.g., "1.1.0")
+ * Get current version from backend API
+ * @returns {Promise<string>} Current version (e.g., "1.5.0")
  */
-export function getCurrentVersion() {
-  // In a real app, this would read from package.json
-  // For now, we'll use a constant that matches package.json
-  return "1.1.0";
+export async function getCurrentVersion() {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/system/version`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch version');
+    }
+    const data = await response.json();
+    return data.version;
+  } catch (error) {
+    console.error('Failed to get version from backend:', error);
+    // Fallback to package.json version
+    return "1.5.0";
+  }
+}
+
+/**
+ * Get current version synchronously (uses fallback)
+ * @returns {string} Current version (e.g., "1.5.0")
+ */
+export function getCurrentVersionSync() {
+  // Synchronous fallback for components that need immediate value
+  return "1.5.0";
 }
 
 /**

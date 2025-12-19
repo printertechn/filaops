@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { API_URL } from "../../config/api";
 import { useToast } from "../../components/Toast";
 import { useVersionCheck } from "../../hooks/useVersionCheck";
-import { getCurrentVersion, formatVersion } from "../../utils/version";
+import { getCurrentVersion, getCurrentVersionSync, formatVersion } from "../../utils/version";
 
 // Format phone number as (XXX) XXX-XXXX
 const formatPhoneNumber = (value) => {
@@ -27,6 +27,7 @@ const AdminSettings = () => {
     checkForUpdates,
   } = useVersionCheck();
   const [checkingManually, setCheckingManually] = useState(false);
+  const [currentVersion, setCurrentVersion] = useState(getCurrentVersionSync());
 
   // Form state
   const [form, setForm] = useState({
@@ -51,8 +52,19 @@ const AdminSettings = () => {
 
   useEffect(() => {
     fetchSettings();
+    fetchCurrentVersion();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fetchCurrentVersion = async () => {
+    try {
+      const version = await getCurrentVersion();
+      setCurrentVersion(version);
+    } catch (error) {
+      console.error('Failed to fetch current version:', error);
+      // Keep the sync fallback version
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -556,7 +568,7 @@ const AdminSettings = () => {
             <div>
               <p className="text-sm text-gray-400 mb-2">Current Version</p>
               <p className="text-lg font-semibold text-white">
-                v{formatVersion(getCurrentVersion())}
+                v{formatVersion(currentVersion)}
               </p>
             </div>
 
