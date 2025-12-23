@@ -1,0 +1,32 @@
+# CodeRabbit Configuration
+# Disable CodeRabbit AI reviews
+
+# Completely disable CodeRabbit
+reviews:
+  # Disable automatic reviews on PRs
+  auto_review:
+    enabled: false
+  
+  # Disable all review features
+  profile: "off"
+  
+  # Don't request changes
+  request_changes_workflow: false
+  
+  # Don't post any comments
+  high_level_summary: false
+  poem: false
+  review_status: false
+  
+  # Don't analyze anything
+  path_filters: []
+  path_instructions: []
+
+# Disable all chat features
+chat:
+  auto_reply: false
+
+# Don't send any notifications
+early_access: false
+enable_free_tier: false
+
