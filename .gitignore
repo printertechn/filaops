@@ -226,8 +226,8 @@ customer_*.csv
 order_*.csv
 
 # Deployment configs with secrets
-docker-compose.override.yml
-docker-compose.local.yml
+# docker-compose.override.yml (Docker no longer used)
+# docker-compose.local.yml (Docker no longer used)
 *.secrets.yml
 *.secrets.yaml
 
