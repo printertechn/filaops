@@ -3,7 +3,7 @@
             ProductionOrder.status.in_(statuses)
         )
         
-        # SQL Server compatible date filtering
+        # Date filtering
         if horizon_date:
             query = query.filter(
                 or_(

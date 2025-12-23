@@ -27,7 +27,7 @@ class Payment(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     # Foreign Keys
-    # Note: Using NO ACTION for recorded_by to avoid SQL Server cascade path conflict
+    # Note: Using NO ACTION for recorded_by to avoid cascade path conflict
     sales_order_id = Column(Integer, ForeignKey("sales_orders.id", ondelete="CASCADE"), nullable=False, index=True)
     recorded_by_id = Column(Integer, ForeignKey("users.id", ondelete="NO ACTION"), nullable=True, index=True)
 

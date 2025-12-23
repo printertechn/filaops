@@ -42,7 +42,7 @@ class Inventory(Base):
     # Quantities
     on_hand_quantity = Column(Numeric(10, 2), default=0, nullable=False)
     allocated_quantity = Column(Numeric(10, 2), default=0, nullable=False)
-    # available_quantity is a computed column in SQL Server (on_hand - allocated)
+    # available_quantity is a computed column (on_hand - allocated)
     available_quantity = Column(Numeric(10, 2), Computed("on_hand_quantity - allocated_quantity"))
 
     # Metadata

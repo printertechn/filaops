@@ -15,8 +15,8 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is not set")
 
-# Create engine for SQL Server
-# Using NullPool to avoid connection pooling issues with SQL Server Express
+# Create engine for PostgreSQL
+# Using NullPool for connection management
 engine = create_engine(
     DATABASE_URL,
     poolclass=NullPool,

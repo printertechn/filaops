@@ -848,8 +848,7 @@ class MRPService:
         )
         
         # Filter by date - use estimated_completion_date if available, otherwise created_at
-        # For SQL Server compatibility, cast DateTime to date for comparison
-        # Use a simpler approach that works with SQL Server
+        # Cast DateTime to date for comparison
         query = query.filter(
             or_(
                 and_(

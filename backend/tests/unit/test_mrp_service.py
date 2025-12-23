@@ -38,7 +38,7 @@ def create_all_tables():
     """Create all tables needed for MRP testing
     
     Note: We create tables manually to handle SQLite limitations:
-    - SQLite doesn't support computed columns like SQL Server
+    - SQLite doesn't support computed columns
     - We create a simplified inventory table without the computed column
     """
     from sqlalchemy import Table, Column, Integer, String, Numeric, DateTime, Date, Text, Boolean, ForeignKey, MetaData
@@ -683,7 +683,7 @@ def inventory_with_stock(db, inventory_location, raw_material_pla, raw_material_
     """Create inventory records with some stock
     
     Note: We use raw SQL INSERT to avoid issues with the computed column
-    (available_quantity) that SQL Server uses but SQLite doesn't support.
+    (available_quantity) computed column that SQLite doesn't support.
     """
     from sqlalchemy import text
     

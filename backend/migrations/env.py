@@ -55,7 +55,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        # SQL Server specific settings
+        # PostgreSQL migration settings
         compare_type=True,
         compare_server_default=True,
     )
@@ -80,7 +80,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            # SQL Server specific settings
+            # PostgreSQL migration settings
             compare_type=True,
             compare_server_default=True,
         )

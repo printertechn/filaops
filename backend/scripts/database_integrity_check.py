@@ -399,11 +399,11 @@ class DatabaseIntegrityChecker:
             print(f"   ⚠️  Could not gather statistics: {e}")
             
     def check_index_health(self):
-        """Check database index status (SQL Server specific)"""
+        """Check database index status (PostgreSQL specific)"""
         print("\n🔍 Checking index health...")
         
         try:
-            # This is SQL Server specific - adapt for other databases
+            # This is PostgreSQL specific - adapt for other databases
             index_check = self.db.execute(text("""
                 SELECT 
                     OBJECT_NAME(i.object_id) as table_name,

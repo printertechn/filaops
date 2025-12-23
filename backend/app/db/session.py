@@ -10,7 +10,7 @@ from app.logging_config import get_logger
 logger = get_logger(__name__)
 
 # Use the database_url property from settings
-# This handles both Windows Authentication (local dev) and SQL Server auth (Docker)
+# PostgreSQL connection configuration
 connection_string = settings.database_url
 
 # Log connection info (without password)

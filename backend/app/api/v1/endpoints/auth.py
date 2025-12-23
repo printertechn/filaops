@@ -166,7 +166,7 @@ async def register_user(
         user_id=new_user.id,
         token_hash=token_hash,
         expires_at=datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
-        created_at=datetime.utcnow(),  # Explicitly set created_at for SQL Server
+        created_at=datetime.utcnow(),  # Explicitly set created_at
     )
     db.add(refresh_token_record)
     db.commit()
@@ -277,7 +277,7 @@ async def login_user(
             user_id=user.id,
             token_hash=token_hash,
             expires_at=expires_at,
-            created_at=datetime.utcnow(),  # Explicitly set created_at for SQL Server
+            created_at=datetime.utcnow(),  # Explicitly set created_at
         )
         db.add(refresh_token_record)
         db.commit()
@@ -364,7 +364,7 @@ async def refresh_access_token(
         user_id=user.id,
         token_hash=new_token_hash,
         expires_at=datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
-        created_at=datetime.utcnow(),  # Explicitly set created_at for SQL Server
+        created_at=datetime.utcnow(),  # Explicitly set created_at
     )
     db.add(new_refresh_token_record)
     db.commit()

@@ -251,7 +251,7 @@ async def list_production_orders(
             )
         )
 
-    # SQL Server doesn't support NULLS LAST, so use CASE expression
+    # Use CASE expression for NULL ordering
     query = query.order_by(
         ProductionOrder.priority.asc(),
         case((ProductionOrder.due_date.is_(None), 1), else_=0),  # NULLs last
@@ -327,7 +327,7 @@ async def create_production_order(
     if not bom_id:
         default_bom = db.query(BOM).filter(
             BOM.product_id == request.product_id,
-            BOM.active == True  # noqa: E712 - SQL Server requires == True
+            BOM.active == True  # noqa: E712
         ).first()
         if default_bom:
             bom_id = default_bom.id
@@ -337,7 +337,7 @@ async def create_production_order(
     if not routing_id:
         default_routing = db.query(Routing).filter(
             Routing.product_id == request.product_id,
-            Routing.is_active == True  # noqa: E712 - SQL Server requires == True
+            Routing.is_active == True  # noqa: E712
         ).first()
         if default_routing:
             routing_id = default_routing.id
@@ -387,7 +387,7 @@ async def get_scrap_reasons(
 ) -> ScrapReasonsResponse:
     """Get list of active scrap reasons from database"""
     reasons = db.query(ScrapReason).filter(
-        ScrapReason.active == True  # noqa: E712 - SQL Server requires == True
+        ScrapReason.active == True  # noqa: E712
     ).order_by(ScrapReason.sequence, ScrapReason.name).all()
 
     return ScrapReasonsResponse(
@@ -680,7 +680,7 @@ async def get_required_orders(
         # Find active BOM for this product
         bom = db.query(BOM).filter(
             BOM.product_id == product_id,
-            BOM.active == True  # noqa: E712 - SQL Server requires == True
+            BOM.active == True  # noqa: E712
         ).first()
 
         if not bom:
@@ -1495,7 +1495,7 @@ async def get_queue_by_work_center(
     current_user: User = Depends(get_current_user),
 ) -> List[WorkCenterQueue]:
     """Get operations queued at each work center"""
-    work_centers = db.query(WorkCenter).filter(WorkCenter.active == True)  # noqa: E712.all()  # noqa: E712 - SQL Server requires == True
+    work_centers = db.query(WorkCenter).filter(WorkCenter.active == True)  # noqa: E712.all()  # noqa: E712
 
     result = []
     for wc in work_centers:
@@ -1597,12 +1597,12 @@ async def scrap_production_order(
     # Validate scrap reason against database
     valid_reason = db.query(ScrapReason).filter(
         ScrapReason.code == scrap_reason,
-        ScrapReason.active == True  # noqa: E712 - SQL Server requires == True
+        ScrapReason.active == True  # noqa: E712
     ).first()
     if not valid_reason:
         # Get list of valid codes for error message
         valid_codes = db.query(ScrapReason.code).filter(
-            ScrapReason.active == True  # noqa: E712 - SQL Server requires == True
+            ScrapReason.active == True  # noqa: E712
         ).all()
         valid_list = ", ".join([c[0] for c in valid_codes])
         raise HTTPException(

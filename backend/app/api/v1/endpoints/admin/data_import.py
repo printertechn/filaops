@@ -235,7 +235,7 @@ async def import_inventory(
                     inventory.on_hand_quantity = (inventory.on_hand_quantity or Decimal("0")) + quantity
                 else:
                     inventory.on_hand_quantity = quantity
-                # available_quantity is computed in SQL Server, just update on_hand
+                # available_quantity is computed, just update on_hand
                 inventory.updated_at = datetime.now(timezone.utc)
                 updated += 1
             else:

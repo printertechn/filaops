@@ -53,7 +53,7 @@ class User(Base):
     status = Column(String(20), default='active', nullable=False, index=True)  # active, inactive, suspended
     account_type = Column(String(20), default='customer', nullable=False)  # customer, admin, operator
 
-    # Timestamps (using timezone=False for SQL Server DATETIME compatibility)
+    # Timestamps (using timezone=False for PostgreSQL TIMESTAMP compatibility)
     created_at = Column(DateTime(timezone=False), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=False), server_default=func.now(), onupdate=func.now(), nullable=False)
     last_login_at = Column(DateTime(timezone=False), nullable=True)
@@ -111,7 +111,7 @@ class RefreshToken(Base):
     expires_at = Column(DateTime(timezone=False), nullable=False, index=True)
     revoked = Column(Boolean, default=False, nullable=False)
 
-    # Timestamps (using timezone=False for SQL Server DATETIME compatibility)
+    # Timestamps (using timezone=False for PostgreSQL TIMESTAMP compatibility)
     created_at = Column(DateTime(timezone=False), server_default=func.now(), nullable=False)
     revoked_at = Column(DateTime(timezone=False), nullable=True)
 
@@ -125,7 +125,7 @@ class RefreshToken(Base):
     def is_valid(self) -> bool:
         """Check if refresh token is still valid (not revoked and not expired)"""
         from datetime import datetime
-        # Using naive datetime (no timezone) for SQL Server DATETIME compatibility
+        # Using naive datetime (no timezone) for PostgreSQL TIMESTAMP compatibility
         now = datetime.utcnow()
         return not self.revoked and self.expires_at > now
 

@@ -25,8 +25,8 @@ class OrderEvent(Base):
         nullable=False,
         index=True
     )
-    # Note: ondelete=NO ACTION because SQL Server doesn't allow
-    # multiple cascade paths (sales_order->user and order_event->user)
+    # Note: ondelete=NO ACTION to avoid multiple cascade paths
+    # (sales_order->user and order_event->user)
     user_id = Column(
         Integer,
         ForeignKey("users.id", ondelete="NO ACTION"),

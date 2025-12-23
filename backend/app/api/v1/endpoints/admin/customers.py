@@ -294,7 +294,7 @@ async def create_customer(
     # In open source, customers are CRM records only (no login capability)
     password_hashed = hash_password(secrets.token_urlsafe(32))
 
-    # Set timestamps explicitly for SQL Server compatibility
+    # Set timestamps explicitly
     now = datetime.now(timezone.utc)
 
     customer = User(
