@@ -18,8 +18,8 @@ export default defineConfig({
   timeout: 60000, // 60s timeout per test
 
   use: {
-    // Use DEV environment (5174) - PROD is 5173
-    baseURL: process.env.BASE_URL || 'http://localhost:5174',
+    // Use DEV environment - Vite default port 5173
+    baseURL: process.env.BASE_URL || 'http://localhost:5173',
     trace: 'on-first-retry',
     // No screenshots by default - E2E workflow test enables them explicitly
     screenshot: 'off',
