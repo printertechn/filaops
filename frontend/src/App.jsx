@@ -1,8 +1,15 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { createContext, useMemo } from "react";
 import { ToastProvider } from "./components/Toast";
+import { createApiClient } from "./lib/apiClient";
+import { API_URL } from "./config/api";
+import ErrorBoundary from "./components/ErrorBoundary";
+import ApiErrorToaster from "./components/ApiErrorToaster";
 import AdminLayout from "./components/AdminLayout";
 import Setup from "./pages/Setup";
 import Onboarding from "./pages/Onboarding";
+
+export const ApiContext = createContext(null);
 
 // Admin pages
 import AdminLogin from "./pages/admin/AdminLogin";
@@ -31,13 +38,38 @@ import AdminLocations from "./pages/admin/AdminLocations";
 import AdminAccounting from "./pages/admin/AdminAccounting";
 import AdminPrinters from "./pages/admin/AdminPrinters";
 import AdminScrapReasons from "./pages/admin/AdminScrapReasons";
+import AdminSpools from "./pages/admin/AdminSpools";
+import MaterialTraceability from "./pages/admin/quality/MaterialTraceability";
 // import AdminLicense from "./pages/admin/AdminLicense";  // Disabled until ready
 import Pricing from "./pages/Pricing";
 
 export default function App() {
+  const api = useMemo(
+    () =>
+      createApiClient({
+        baseUrl: API_URL,
+        getToken: () => localStorage.getItem("adminToken"),
+        onUnauthorized: async () => {
+          localStorage.removeItem("adminToken");
+          // optional: redirect to login
+          window.location.href = "/admin/login";
+        },
+        onError: (err) => {
+          // why: centralized logging hook (also toasts via ApiErrorToaster)
+          // eslint-disable-next-line no-console
+          console.warn("API error:", err.status, err.message);
+        },
+      }),
+    []
+  );
+
   return (
-    <BrowserRouter>
-      <ToastProvider>
+    <ErrorBoundary>
+      <ApiContext.Provider value={api}>
+        <ToastProvider>
+          {/* Global API error toasts */}
+          <ApiErrorToaster />
+          <BrowserRouter>
         <Routes>
           {/* Redirect root to admin */}
           <Route path="/" element={<Navigate to="/admin" replace />} />
@@ -89,10 +121,14 @@ export default function App() {
             <Route path="accounting" element={<AdminAccounting />} />
             <Route path="printers" element={<AdminPrinters />} />
             <Route path="scrap-reasons" element={<AdminScrapReasons />} />
+            <Route path="spools" element={<AdminSpools />} />
+            <Route path="quality/traceability" element={<MaterialTraceability />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
         </Routes>
-      </ToastProvider>
-    </BrowserRouter>
+          </BrowserRouter>
+        </ToastProvider>
+      </ApiContext.Provider>
+    </ErrorBoundary>
   );
 }

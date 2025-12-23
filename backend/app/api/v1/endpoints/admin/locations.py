@@ -50,7 +50,7 @@ async def list_locations(
     """List all inventory locations"""
     query = db.query(InventoryLocation)
     if not include_inactive:
-        query = query.filter(InventoryLocation.active == True)  # noqa: E712  # noqa: E712
+        query = query.filter(InventoryLocation.active.is_(True))  # noqa: E712  # noqa: E712
 
     locations = query.order_by(InventoryLocation.code).all()
     return [

@@ -91,6 +91,12 @@ class InventoryTransaction(Base):
     # Notes
     notes = Column(Text, nullable=True)
 
+    # Negative Inventory Approval (for transactions that would cause negative inventory)
+    requires_approval = Column(Boolean, default=False, nullable=False)
+    approval_reason = Column(Text, nullable=True)
+    approved_by = Column(String(100), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+
     # Metadata
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     created_by = Column(String(100), nullable=True)

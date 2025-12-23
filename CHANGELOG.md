@@ -2,6 +2,115 @@
 
 All notable changes to FilaOps will be documented in this file.
 
+## [Unreleased] - PostgreSQL Migration Release
+
+### 🎉 Major Changes
+
+#### PostgreSQL-Only Architecture
+- **BREAKING:** Removed Docker-based setup
+- **BREAKING:** Removed SQL Server Express support
+- Migrated to PostgreSQL 16+ only architecture
+- Simplified installation process (no Docker required)
+- Updated all documentation for PostgreSQL-only setup
+- Updated GitHub Actions workflows for PostgreSQL
+
+#### Enhanced Production Scheduling
+- **NEW:** Gantt chart scheduler interface
+- **NEW:** Drag & drop scheduling
+- **NEW:** Visual timeline view for production orders
+- **NEW:** Auto-arrange scheduling
+- **NEW:** Keyboard shortcuts for power users
+- **NEW:** Work schedule support (machine availability)
+- **NEW:** Resource management improvements
+- Updated `AdminProduction.jsx` with Gantt view (default)
+- Enhanced `ProductionGanttScheduler` component
+
+#### Frontend Improvements
+- **NEW:** Centralized API client (`apiClient.js`)
+- **NEW:** API context provider (`ApiContext`)
+- **FIX:** Added ability to remove operations from saved BOM routings
+  - Added delete button for each operation in BOM routing table
+  - Added confirmation dialog before deletion
+  - Operations can now be fully managed without recreating entire routings
+- **NEW:** Event bus for app-wide notifications
+- **NEW:** Time utilities for scheduling
+- **NEW:** Number formatting utilities
+- Enhanced error handling throughout
+- Better error messages and user feedback
+- Improved `ProductionSchedulingModal` with auto-population
+- Enhanced `ScrapOrderModal` with better error handling
+- Updated `UpdateNotification` with auto-upgrade feature
+- Improved toast notifications
+
+#### Development Experience
+- Instant hot reload (no Docker rebuilds)
+- Faster development iteration
+- Easier debugging
+- Simplified development setup
+
+### 🔧 Technical Changes
+
+#### Removed
+- `docker-compose.yml`
+- `docker-compose.dev.yml`
+- `docker-compose.postgres.yml`
+- `backend/Dockerfile`
+- `frontend/Dockerfile`
+- All Docker-related documentation
+
+#### Added
+- `frontend/src/lib/apiClient.js` - Centralized API client
+- `frontend/src/lib/useApi.js` - React hook for API access
+- `frontend/src/lib/events.js` - Event bus
+- `frontend/src/lib/time.js` - Time utilities
+- `frontend/src/lib/number.js` - Number utilities
+- `start-all.ps1` - Windows script to start both services
+- `start-frontend.ps1` - Enhanced frontend startup script
+
+#### Updated
+- `App.jsx` - Added ApiContext provider
+- `AdminOrders.jsx` - Better error handling
+- `OrderDetail.jsx` - Improved error messages
+- `AdminDashboard.jsx` - Minor improvements
+- `AdminProduction.jsx` - New Gantt scheduler interface
+- `ProductionSchedulingModal.jsx` - Major UX improvements
+- `ScrapOrderModal.jsx` - Better error handling
+- `UpdateNotification.jsx` - Auto-upgrade feature
+- `Toast.jsx` - Display improvements
+- `ProductionScheduler.jsx` - Code cleanup
+- All documentation files
+- GitHub Actions workflows
+
+### 📚 Documentation
+- Updated `README.md` for PostgreSQL-only setup
+- Updated `GETTING_STARTED.md` for PostgreSQL
+- Updated `FilaOps_Zero-to-Running_Windows.md`
+- Updated `FilaOps_Zero-to-Running_macOS_Linux_SSH.md`
+- Updated `FAQ.md` with PostgreSQL questions
+- Updated `TROUBLESHOOTING.md` for PostgreSQL
+- Created `ANNOUNCEMENT_POSTGRES_MIGRATION.md`
+
+### 🐛 Bug Fixes
+- Fixed GitHub Actions CI/CD workflows
+- Fixed missing SECRET_KEY in CI workflows
+- Fixed API URL port references (8001)
+- Improved error handling in production scheduling
+- Better error messages throughout the application
+
+### ⚠️ Breaking Changes
+- **Docker support removed** - Must use PostgreSQL directly
+- **SQL Server support removed** - PostgreSQL 16+ required
+- **Port changes** - Backend now uses port 8001 (was 8000 in some configs)
+- **Setup process changed** - Follow new setup guides
+
+### 📝 Migration Notes
+- Existing Docker users need to migrate to PostgreSQL
+- Use migration script: `backend/scripts/migrate_sqlserver_to_postgres.py`
+- Update `.env` file with PostgreSQL credentials
+- Follow new setup guides for fresh installations
+
+---
+
 ## [1.5.0] - 2025-12-16
 
 ### Added

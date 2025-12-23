@@ -48,7 +48,7 @@ def get_default_location(db: Session) -> InventoryLocation:
     if not location:
         # Try to get any active location
         location = db.query(InventoryLocation).filter(
-            InventoryLocation.active == True
+            InventoryLocation.active.is_(True)
         ).first()
     
     if not location:
@@ -366,7 +366,7 @@ async def get_production_order_details(
     
     # Get additional details
     product = db.query(Product).filter(Product.id == po.product_id).first() if po.product_id else None
-    bom = db.query(BOM).filter(BOM.product_id == po.product_id, BOM.active == True).first() if po.product_id else None  # noqa: E712
+    bom = db.query(BOM).filter(BOM.product_id == po.product_id, BOM.active.is_(True)).first() if po.product_id else None  # noqa: E712
     
     # Get quote details
     quote = db.query(Quote).filter(Quote.product_id == po.product_id).first() if po.product_id else None
@@ -513,7 +513,7 @@ async def start_production(
     elif po.product_id:
         bom = db.query(BOM).filter(
             BOM.product_id == po.product_id,
-            BOM.active == True
+            BOM.active.is_(True)
         ).first()
 
     if bom and bom.lines:
@@ -687,6 +687,7 @@ async def complete_print(
     qty_good = request.qty_good if request.qty_good is not None else ordered_qty
     qty_bad = request.qty_bad if request.qty_bad is not None else 0
     total_produced = qty_good + qty_bad
+    overrun_qty = max(0, qty_good - ordered_qty)  # MTS overrun quantity
 
     # Update production order
     po.status = "printed"  # Waiting for final QC/ship
@@ -722,7 +723,7 @@ async def complete_print(
     elif po.product_id:
         bom = db.query(BOM).filter(
             BOM.product_id == po.product_id,
-            BOM.active == True
+            BOM.active.is_(True)
         ).first()
 
     # Build a set of component_ids that should be consumed at production stage
@@ -854,6 +855,7 @@ async def complete_print(
 
     # =========================================================================
     # FINISHED GOODS INVENTORY - Add good parts to stock
+    # Handle overruns: ordered quantity goes to order fulfillment, overrun becomes MTS stock
     # =========================================================================
     finished_goods_added = None
     if qty_good > 0 and po.product_id:
@@ -877,28 +879,49 @@ async def complete_print(
             db.add(fg_inventory)
             db.flush()  # Get ID for transaction reference
 
-        # Add good parts to inventory (existing or newly created)
+        # Add ordered quantity to inventory
+        ordered_qty_to_add = min(qty_good, ordered_qty)
         fg_inventory.on_hand_quantity = Decimal(str(
-            float(fg_inventory.on_hand_quantity) + qty_good
+            float(fg_inventory.on_hand_quantity) + ordered_qty_to_add
         ))
 
-        # Create receipt transaction
+        # Create receipt transaction for ordered quantity
         receipt_txn = InventoryTransaction(
             product_id=po.product_id,
             location_id=fg_inventory.location_id,
             transaction_type="receipt",
             reference_type="production_order",
             reference_id=po.id,
-            quantity=Decimal(str(qty_good)),
-            notes=f"Produced from {po.code}: {qty_good} good parts",
+            quantity=Decimal(str(ordered_qty_to_add)),
+            notes=f"Produced from {po.code}: {ordered_qty_to_add} good parts (ordered quantity)",
             created_by="system",
         )
         db.add(receipt_txn)
+
+        # Handle overrun: add extra units as MTS stock
+        if overrun_qty > 0:
+            fg_inventory.on_hand_quantity = Decimal(str(
+                float(fg_inventory.on_hand_quantity) + overrun_qty
+            ))
+            
+            overrun_txn = InventoryTransaction(
+                product_id=po.product_id,
+                location_id=fg_inventory.location_id,
+                transaction_type="receipt",
+                reference_type="production_order",
+                reference_id=po.id,
+                quantity=Decimal(str(overrun_qty)),
+                notes=f"MTS overrun from {po.code}: {overrun_qty} extra units added to stock",
+                created_by="system",
+            )
+            db.add(overrun_txn)
 
         product = db.query(Product).filter(Product.id == po.product_id).first()
         finished_goods_added = {
             "product_sku": product.sku if product else "N/A",
             "quantity_added": qty_good,
+            "ordered_quantity": ordered_qty_to_add,
+            "overrun_quantity": overrun_qty,
             "new_on_hand": float(fg_inventory.on_hand_quantity),
             "inventory_created": True if fg_inventory.id is None else False,
         }
@@ -942,6 +965,7 @@ async def complete_print(
             "ordered": ordered_qty,
             "good": qty_good,
             "bad": qty_bad,
+            "overrun": overrun_qty,
             "shortfall": shortfall,
         },
         "materials_consumed": consumed_materials,
@@ -1183,7 +1207,7 @@ async def get_orders_ready_to_ship(
         if quote and quote.product_id:
             bom = db.query(BOM).filter(
                 BOM.product_id == quote.product_id,
-                BOM.active == True
+                BOM.active.is_(True)
             ).first()
 
             if bom and bom.lines:
@@ -1257,7 +1281,7 @@ async def get_available_boxes(
 
     # Get all box products (matching the pattern used in bom_service)
     box_products = db.query(Product).filter(
-        Product.active == True,  # noqa: E712
+        Product.active.is_(True),  # noqa: E712
         Product.name.like('%box%')
     ).all()
 
@@ -1476,7 +1500,7 @@ async def buy_consolidated_shipping_label(
         elif po.product_id:
             bom = db.query(BOM).filter(
                 BOM.product_id == po.product_id,
-                BOM.active == True
+                BOM.active.is_(True)
             ).first()
 
         if not bom or not bom.lines:
@@ -1543,7 +1567,7 @@ async def buy_consolidated_shipping_label(
             elif po.product_id:
                 bom = db.query(BOM).filter(
                     BOM.product_id == po.product_id,
-                    BOM.active == True
+                    BOM.active.is_(True)
                 ).first()
 
             if not bom or not bom.lines:
@@ -1784,7 +1808,7 @@ async def buy_shipping_label(
         elif po.product_id:
             bom = db.query(BOM).filter(
                 BOM.product_id == po.product_id,
-                BOM.active == True
+                BOM.active.is_(True)
             ).first()
 
         if not bom or not bom.lines:

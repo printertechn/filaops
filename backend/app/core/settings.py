@@ -65,7 +65,7 @@ class Settings(BaseSettings):
         if self.DATABASE_URL:
             return self.DATABASE_URL
         return (
-            f"postgresql+psycopg2://{self.DB_USER}:{self.DB_PASSWORD}"
+            f"postgresql+psycopg://{self.DB_USER}:{self.DB_PASSWORD}"
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         )
 

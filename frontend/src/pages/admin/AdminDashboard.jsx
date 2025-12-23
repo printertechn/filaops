@@ -144,7 +144,8 @@ export default function AdminDashboard() {
 
       {/* Alerts Section */}
       {(stats?.orders?.overdue > 0 ||
-        stats?.inventory?.low_stock_count > 0) && (
+        stats?.inventory?.low_stock_count > 0 ||
+        stats?.production?.ready_to_start > 0) && (
         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <svg
@@ -162,7 +163,7 @@ export default function AdminDashboard() {
             </svg>
             <h3 className="font-semibold text-yellow-400">Action Required</h3>
           </div>
-          <div className="flex gap-4 text-sm">
+          <div className="flex flex-wrap gap-4 text-sm">
             {stats?.orders?.overdue > 0 && (
               <Link
                 to="/admin/orders?status=overdue"
@@ -179,6 +180,15 @@ export default function AdminDashboard() {
               >
                 {stats.inventory.low_stock_count} Low Stock Item
                 {stats.inventory.low_stock_count !== 1 ? "s" : ""} →
+              </Link>
+            )}
+            {stats?.production?.ready_to_start > 0 && (
+              <Link
+                to="/admin/production?status=released&materials_available=true"
+                className="text-green-300 hover:text-green-200"
+              >
+                {stats.production.ready_to_start} Production Order
+                {stats.production.ready_to_start !== 1 ? "s" : ""} Ready to Start →
               </Link>
             )}
           </div>
@@ -296,7 +306,7 @@ export default function AdminDashboard() {
           <StatCard
             title="In Production"
             value={stats?.production?.in_progress || 0}
-            subtitle={`${stats?.production?.scheduled || 0} scheduled`}
+            subtitle={`${stats?.production?.scheduled || 0} scheduled, ${stats?.production?.ready_to_start || 0} ready to start`}
             color="primary"
             to="/admin/production"
           />

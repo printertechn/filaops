@@ -61,6 +61,12 @@ class CompanySettingsResponse(BaseModel):
     quote_terms: Optional[str] = None
     quote_footer: Optional[str] = None
 
+    # Business hours settings
+    business_hours_start: Optional[int] = None  # Hour of day (0-23), default 8am
+    business_hours_end: Optional[int] = None  # Hour of day (0-23), default 4pm
+    business_days_per_week: Optional[int] = None  # 5 = Mon-Fri
+    business_work_days: Optional[str] = None  # "0,1,2,3,4" for Mon-Fri
+
     updated_at: datetime
 
     model_config = {"from_attributes": True}
@@ -89,6 +95,12 @@ class CompanySettingsUpdate(BaseModel):
     default_quote_validity_days: Optional[int] = Field(None, ge=1, le=365)
     quote_terms: Optional[str] = Field(None, max_length=2000)
     quote_footer: Optional[str] = Field(None, max_length=1000)
+
+    # Business hours settings
+    business_hours_start: Optional[int] = Field(None, ge=0, le=23)  # Hour of day (0-23)
+    business_hours_end: Optional[int] = Field(None, ge=0, le=23)  # Hour of day (0-23)
+    business_days_per_week: Optional[int] = Field(None, ge=1, le=7)  # 1-7 days
+    business_work_days: Optional[str] = Field(None, max_length=20)  # "0,1,2,3,4" for Mon-Fri
 
 
 # ============================================================================
@@ -139,6 +151,10 @@ def settings_to_response(settings: CompanySettings) -> CompanySettingsResponse:
         default_quote_validity_days=settings.default_quote_validity_days,
         quote_terms=settings.quote_terms,
         quote_footer=settings.quote_footer,
+        business_hours_start=settings.business_hours_start,
+        business_hours_end=settings.business_hours_end,
+        business_days_per_week=settings.business_days_per_week,
+        business_work_days=settings.business_work_days,
         updated_at=settings.updated_at,
     )
 

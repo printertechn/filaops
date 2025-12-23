@@ -57,6 +57,14 @@ class CompanySettings(Base):
     accounting_method = Column(String(20), nullable=True, default="cash")  # cash or accrual
     currency_code = Column(String(10), nullable=True, default="USD")
 
+    # Production/Business Hours Settings
+    # Default business hours for non-printer operations (8am-4pm, Mon-Fri)
+    business_hours_start = Column(Integer, nullable=True, default=8)  # Hour of day (0-23), default 8am
+    business_hours_end = Column(Integer, nullable=True, default=16)  # Hour of day (0-23), default 4pm
+    business_days_per_week = Column(Integer, nullable=True, default=5)  # 5 = Mon-Fri
+    # Work days as comma-separated list: "0,1,2,3,4" for Mon-Fri (0=Monday, 6=Sunday)
+    business_work_days = Column(String(20), nullable=True, default="0,1,2,3,4")  # Mon-Fri
+
     # Timestamps
     created_at = Column(DateTime(timezone=False), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=False), nullable=False, server_default=func.now())

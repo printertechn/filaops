@@ -167,7 +167,7 @@ async def list_printers(
     query = db.query(Printer)
 
     if active_only:
-        query = query.filter(Printer.active == True)  # noqa: E712  # noqa: E712 - SQL Server requires == True
+        query = query.filter(Printer.active.is_(True))
 
     if brand:
         query = query.filter(Printer.brand == brand.value)
@@ -681,7 +681,7 @@ async def get_printers_active_work(
 
     # Get all active printers with work centers
     printers = db.query(Printer).filter(
-        Printer.active == True,  # noqa: E712  # noqa: E712
+        Printer.active.is_(True),  # noqa: E712  # noqa: E712
         Printer.work_center_id.isnot(None)
     ).all()
 

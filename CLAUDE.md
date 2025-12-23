@@ -50,7 +50,7 @@ docker-compose up     # ❌ NO!
 FilaOps is an ERP system for 3D printing businesses built with:
 - **Backend**: Python/FastAPI with SQLAlchemy and PostgreSQL
 - **Frontend**: React with Vite, Tailwind CSS
-- **Deployment**: Docker Compose
+- **Deployment**: Native installation (Python venv + systemd/PM2)
 
 ## Development Workflow
 

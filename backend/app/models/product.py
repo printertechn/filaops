@@ -97,6 +97,9 @@ class Product(Base):
     item_category = relationship("ItemCategory", back_populates="products")
     routings = relationship("Routing", back_populates="product")
 
+    # Spool tracking (for filament/materials)
+    spools = relationship("MaterialSpool", back_populates="product")
+    
     # Material relationships (for supply items that are materials)
     material_type = relationship("MaterialType", foreign_keys=[material_type_id])
     color = relationship("Color", foreign_keys=[color_id])

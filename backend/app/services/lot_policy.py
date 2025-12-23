@@ -134,7 +134,7 @@ class LotPolicyService:
         elif po.product_id:
             bom = db.query(BOM).filter(
                 BOM.product_id == po.product_id,
-                BOM.active == True
+                BOM.active.is_(True)
             ).first()
         
         if not bom or not bom.lines:

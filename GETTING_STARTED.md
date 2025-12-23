@@ -22,6 +22,31 @@ After setup, open **http://localhost:5173** — the **Setup Wizard** will guide 
 
 ---
 
+## What's New?
+
+### Recent Improvements
+
+**PostgreSQL-Only Architecture**
+- Simplified setup (no Docker required)
+- Faster performance with native database drivers
+- Easier debugging and customization
+
+**Enhanced Production Scheduling**
+- New Gantt chart interface
+- Drag & drop scheduling
+- Visual timeline for production orders
+- Resource management improvements
+
+**Frontend Enhancements**
+- Better error handling and user feedback
+- Centralized API client with automatic retry
+- Improved scheduling, scrap, and update modals
+- Instant hot reload during development
+
+See **[ANNOUNCEMENT_POSTGRES_MIGRATION.md](ANNOUNCEMENT_POSTGRES_MIGRATION.md)** for complete details.
+
+---
+
 ## What's Next?
 
 ### Quick Tour of FilaOps

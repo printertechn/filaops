@@ -1,130 +1,288 @@
 """
-Feature flag system for tier-based access control (Open/Pro/Enterprise)
+Feature Flag System for FilaOps
+
+Controls access to features based on subscription tier.
+Set LICENSING_ENABLED = False to give everyone all features (current mode).
+Set LICENSING_ENABLED = True to enforce license checking.
 """
 from enum import Enum
+from typing import Dict, List, Callable
 from functools import wraps
-from typing import Optional, Callable, Any
-from fastapi import HTTPException, status, Depends
+from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
 
-from app.core.settings import settings
-from app.db.session import get_db
-from app.models.user import User
-from app.api.v1.deps import get_current_user
+# ============================================================================
+# MASTER SWITCH - Set to True when ready to enforce licensing
+# ============================================================================
+LICENSING_ENABLED = False  # Everyone gets all features for now!
 
-
-class Tier(str, Enum):
-    """Product tier levels"""
-    OPEN = "open"
-    PRO = "pro"
+class FeatureTier(str, Enum):
+    """Subscription tiers"""
+    COMMUNITY = "community"
+    PROFESSIONAL = "professional"
     ENTERPRISE = "enterprise"
+    
+    # Aliases for backward compatibility
+    PRO = "professional"  # Same as PROFESSIONAL
 
+# ============================================================================
+# Feature Definitions
+# ============================================================================
+# NOTE: For now, ALL features are marked as "community" so everyone gets them.
+# When ready to monetize, just change the tier values below.
+# ============================================================================
 
-# Tier hierarchy for comparison
-TIER_LEVELS = {
-    Tier.OPEN: 0,
-    Tier.PRO: 1,
-    Tier.ENTERPRISE: 2,
+FEATURE_FLAGS: Dict[str, Dict] = {
+    # ========================================================================
+    # Quality - Traceability (FREE FOREVER)
+    # ========================================================================
+    "traceability_forward": {
+        "name": "Forward Traceability",
+        "tier": FeatureTier.COMMUNITY,
+        "description": "Trace materials forward from spool to finished products",
+        "category": "quality",
+    },
+    "traceability_backward": {
+        "name": "Backward Traceability",
+        "tier": FeatureTier.COMMUNITY,
+        "description": "Trace finished products back to source materials",
+        "category": "quality",
+    },
+    "traceability_export": {
+        "name": "DHR Report Export",
+        "tier": FeatureTier.COMMUNITY,
+        "description": "Export Device History Records as PDF/CSV",
+        "category": "quality",
+    },
+    "quality_audit_log": {
+        "name": "Quality Audit Log",
+        "tier": FeatureTier.COMMUNITY,
+        "description": "Track all quality-related changes",
+        "category": "quality",
+    },
+    
+    # ========================================================================
+    # Quality - Advanced (Future: Professional Tier)
+    # ========================================================================
+    # When ready to monetize, change these to FeatureTier.PROFESSIONAL
+    "recall_impact_calculator": {
+        "name": "Recall Impact Calculator",
+        "tier": FeatureTier.COMMUNITY,  # TODO: Change to PROFESSIONAL when ready
+        "description": "Calculate scope of material recalls",
+        "category": "quality",
+    },
+    "quality_holds": {
+        "name": "Quality Holds & Quarantine",
+        "tier": FeatureTier.COMMUNITY,  # TODO: Change to PROFESSIONAL when ready
+        "description": "Put materials/products on quality hold",
+        "category": "quality",
+    },
+    "traceability_alerts": {
+        "name": "Material Usage Alerts",
+        "tier": FeatureTier.COMMUNITY,  # TODO: Change to PROFESSIONAL when ready
+        "description": "Email notifications when specific materials are used",
+        "category": "quality",
+    },
+    "advanced_reports": {
+        "name": "Advanced Quality Reports",
+        "tier": FeatureTier.COMMUNITY,  # TODO: Change to PROFESSIONAL when ready
+        "description": "Custom quality reports and analytics",
+        "category": "quality",
+    },
+    
+    # ========================================================================
+    # Quality - Enterprise (Future: Enterprise Tier)
+    # ========================================================================
+    # When ready to monetize, change these to FeatureTier.ENTERPRISE
+    "traceability_webhooks": {
+        "name": "Traceability API Webhooks",
+        "tier": FeatureTier.COMMUNITY,  # TODO: Change to ENTERPRISE when ready
+        "description": "Real-time webhooks for material usage events",
+        "category": "quality",
+    },
+    "multi_site_traceability": {
+        "name": "Multi-Site Traceability",
+        "tier": FeatureTier.COMMUNITY,  # TODO: Change to ENTERPRISE when ready
+        "description": "Trace materials across multiple facilities",
+        "category": "quality",
+    },
+    "spc_charts": {
+        "name": "Statistical Process Control",
+        "tier": FeatureTier.COMMUNITY,  # TODO: Change to ENTERPRISE when ready
+        "description": "Real-time SPC charts and control limits",
+        "category": "quality",
+    },
 }
 
+# ============================================================================
+# Convenience Lists
+# ============================================================================
 
-def get_current_tier(db: Session, user: Optional[User] = None) -> Tier:
+COMMUNITY_FEATURES = [
+    code for code, feature in FEATURE_FLAGS.items() 
+    if feature["tier"] == FeatureTier.COMMUNITY
+]
+
+PROFESSIONAL_FEATURES = [
+    code for code, feature in FEATURE_FLAGS.items() 
+    if feature["tier"] in [FeatureTier.COMMUNITY, FeatureTier.PROFESSIONAL]
+]
+
+ENTERPRISE_FEATURES = list(FEATURE_FLAGS.keys())  # All features
+
+# ============================================================================
+# Feature Access Functions
+# ============================================================================
+
+def has_feature(feature_code: str, user_tier: str = "community") -> bool:
     """
-    Get the current tier for a user or system.
+    Check if a user's tier has access to a feature.
     
-    Priority:
-    1. User's license (from database - TODO: implement license table)
-    2. Environment variable (for testing/self-hosted)
-    3. Default to OPEN
+    If LICENSING_ENABLED = False, always returns True (everyone gets everything).
+    If LICENSING_ENABLED = True, checks tier hierarchy.
     
-    In Pro launch, this will check:
-    - User subscription/license from database
-    - Organization tier
-    - Trial status
+    Args:
+        feature_code: Feature identifier (e.g., "traceability_forward")
+        user_tier: User's subscription tier
+    
+    Returns:
+        True if user has access, False otherwise
     """
-    # TODO: Check user's license from database
-    # For now, check environment variable for testing
-    # In production, query licenses table:
-    # license = db.query(License).filter(
-    #     License.user_id == user.id,
-    #     License.status == 'active',
-    #     License.expires_at > datetime.utcnow()
-    # ).first()
-    # if license:
-    #     return license.tier
+    # If licensing is disabled, everyone gets everything!
+    if not LICENSING_ENABLED:
+        return True
     
-    tier_str = getattr(settings, "TIER", "open").lower()
-    return Tier(tier_str) if tier_str in [t.value for t in Tier] else Tier.OPEN
+    # Check if feature exists
+    if feature_code not in FEATURE_FLAGS:
+        return False
+    
+    feature = FEATURE_FLAGS[feature_code]
+    tier_order = ["community", "professional", "enterprise"]
+    
+    required_tier_index = tier_order.index(feature["tier"])
+    user_tier_index = tier_order.index(user_tier.lower())
+    
+    return user_tier_index >= required_tier_index
 
-
-def tier_level(tier: Tier) -> int:
-    """Get numeric level for tier comparison"""
-    return TIER_LEVELS.get(tier, 0)
-
-
-def require_tier(minimum_tier: Tier):
+def get_features_for_tier(tier: str) -> List[str]:
     """
-    Decorator to gate endpoints by tier.
+    Get all feature codes available for a tier.
+    
+    Args:
+        tier: Subscription tier
+    
+    Returns:
+        List of feature codes
+    """
+    if tier == FeatureTier.COMMUNITY:
+        return COMMUNITY_FEATURES
+    elif tier == FeatureTier.PROFESSIONAL:
+        return PROFESSIONAL_FEATURES
+    elif tier == FeatureTier.ENTERPRISE:
+        return ENTERPRISE_FEATURES
+    return COMMUNITY_FEATURES
+
+def get_features_by_category(category: str) -> Dict[str, Dict]:
+    """
+    Get all features in a category.
+    
+    Args:
+        category: Category name (e.g., "quality")
+    
+    Returns:
+        Dict of feature_code -> feature_info
+    """
+    return {
+        code: feature 
+        for code, feature in FEATURE_FLAGS.items() 
+        if feature.get("category") == category
+    }
+
+# ============================================================================
+# Backward Compatibility (Legacy API)
+# ============================================================================
+
+# Alias for backward compatibility
+Tier = FeatureTier
+
+def get_current_tier(db: Session, user) -> FeatureTier:
+    """
+    Get the current user's subscription tier.
+    
+    Args:
+        db: Database session
+        user: Current user object
+    
+    Returns:
+        User's tier (defaults to COMMUNITY if licensing disabled)
+    """
+    # If licensing is disabled, everyone is enterprise (all features)
+    if not LICENSING_ENABLED:
+        return FeatureTier.ENTERPRISE
+    
+    # TODO: When licensing is enabled, check organization's license key
+    # For now, default to community
+    return FeatureTier.COMMUNITY
+
+def get_available_features(tier: FeatureTier) -> List[str]:
+    """
+    Get list of feature codes available for a tier.
+    
+    Args:
+        tier: Subscription tier
+    
+    Returns:
+        List of feature codes
+    """
+    return get_features_for_tier(tier.value)
+
+def require_tier(minimum_tier: FeatureTier) -> Callable:
+    """
+    Decorator to require a minimum subscription tier.
     
     Usage:
-        @router.get("/quotes/generate")
-        @require_tier(Tier.PRO)
-        async def generate_quote(...):
+        @router.get("/advanced-analytics")
+        @require_tier(Tier.PROFESSIONAL)
+        async def advanced_analytics(...):
             ...
+    
+    Args:
+        minimum_tier: Minimum tier required
+    
+    Returns:
+        Decorator function
     """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(
-            *args,
-            current_user: User = Depends(get_current_user),
-            db: Session = Depends(get_db),
-            **kwargs
-        ) -> Any:
-            current_tier = get_current_tier(db, current_user)
+        async def wrapper(*args, **kwargs):
+            # If licensing is disabled, allow everything
+            if not LICENSING_ENABLED:
+                return await func(*args, **kwargs)
             
-            if tier_level(current_tier) < tier_level(minimum_tier):
-                tier_names = {
-                    Tier.PRO: "Pro",
-                    Tier.ENTERPRISE: "Enterprise"
-                }
+            # Extract user and db from kwargs (injected by FastAPI)
+            user = kwargs.get("current_user")
+            db = kwargs.get("db")
+            
+            if not user or not db:
                 raise HTTPException(
-                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                    detail={
-                        "error": "TIER_REQUIRED",
-                        "message": f"This feature requires {tier_names.get(minimum_tier, minimum_tier.value)} tier",
-                        "current_tier": current_tier.value,
-                        "required_tier": minimum_tier.value,
-                        "upgrade_url": "https://filaops.com/pricing"
-                    }
+                    status_code=500,
+                    detail="Missing authentication dependencies"
                 )
             
-            return await func(*args, current_user=current_user, db=db, **kwargs)
+            # Check user's tier
+            user_tier = get_current_tier(db, user)
+            tier_order = ["community", "professional", "enterprise"]
+            
+            required_index = tier_order.index(minimum_tier.value)
+            user_index = tier_order.index(user_tier.value)
+            
+            if user_index < required_index:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"This feature requires {minimum_tier.value.title()} tier or higher"
+                )
+            
+            return await func(*args, **kwargs)
+        
         return wrapper
     return decorator
-
-
-# Feature availability helpers
-def has_feature(tier: Tier, feature: str) -> bool:
-    """Check if a tier has access to a specific feature"""
-    feature_map = {
-        "quote_portal": [Tier.PRO, Tier.ENTERPRISE],
-        "b2b_portal": [Tier.PRO, Tier.ENTERPRISE],
-        "integrations": [Tier.PRO, Tier.ENTERPRISE],
-        "ml_time_estimation": [Tier.ENTERPRISE],
-        "printer_fleet": [Tier.ENTERPRISE],
-        "advanced_analytics": [Tier.ENTERPRISE],
-        "accounting_module": [Tier.PRO, Tier.ENTERPRISE],
-        "auto_scheduling": [Tier.PRO, Tier.ENTERPRISE],
-    }
-    return tier in feature_map.get(feature, [])
-
-
-def get_available_features(tier: Tier) -> list[str]:
-    """Get list of available features for a tier"""
-    all_features = [
-        "quote_portal", "b2b_portal", "integrations",
-        "ml_time_estimation", "printer_fleet", "advanced_analytics",
-        "accounting_module"
-    ]
-    return [f for f in all_features if has_feature(tier, f)]
-

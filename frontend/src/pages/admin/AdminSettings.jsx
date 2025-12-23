@@ -48,6 +48,10 @@ const AdminSettings = () => {
     default_quote_validity_days: 30,
     quote_terms: "",
     quote_footer: "",
+    business_hours_start: 8,
+    business_hours_end: 16,
+    business_days_per_week: 5,
+    business_work_days: "0,1,2,3,4", // Mon-Fri
   });
 
   useEffect(() => {
@@ -99,6 +103,10 @@ const AdminSettings = () => {
           default_quote_validity_days: data.default_quote_validity_days || 30,
           quote_terms: data.quote_terms || "",
           quote_footer: data.quote_footer || "",
+          business_hours_start: data.business_hours_start ?? 8,
+          business_hours_end: data.business_hours_end ?? 16,
+          business_days_per_week: data.business_days_per_week ?? 5,
+          business_work_days: data.business_work_days || "0,1,2,3,4",
         });
       } else {
         const errData = await response.json().catch(() => ({}));
@@ -556,6 +564,91 @@ const AdminSettings = () => {
                 placeholder="Thank you for your business! Contact us at..."
               />
             </div>
+          </div>
+        </div>
+
+        {/* Business Hours Settings */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h2 className="text-xl font-semibold text-white mb-4">
+            Business Hours (Production Operations)
+          </h2>
+          <p className="text-sm text-gray-400 mb-4">
+            Configure default business hours for non-printer operations. These hours apply to all work centers except printer pools.
+            Printer pools run 20 hours/day (4am-12am, daily) and are not affected by these settings.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Start Time (Hour)
+              </label>
+              <input
+                type="number"
+                name="business_hours_start"
+                value={form.business_hours_start}
+                onChange={handleChange}
+                min="0"
+                max="23"
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
+                placeholder="8"
+              />
+              <p className="text-sm text-gray-400 mt-1">
+                0-23 (e.g., 8 for 8am)
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                End Time (Hour)
+              </label>
+              <input
+                type="number"
+                name="business_hours_end"
+                value={form.business_hours_end}
+                onChange={handleChange}
+                min="0"
+                max="23"
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
+                placeholder="16"
+              />
+              <p className="text-sm text-gray-400 mt-1">
+                0-23 (e.g., 16 for 4pm)
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Days Per Week
+              </label>
+              <input
+                type="number"
+                name="business_days_per_week"
+                value={form.business_days_per_week}
+                onChange={handleChange}
+                min="1"
+                max="7"
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
+                placeholder="5"
+              />
+              <p className="text-sm text-gray-400 mt-1">
+                1-7 (default: 5 for Mon-Fri)
+              </p>
+            </div>
+          </div>
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Work Days (comma-separated)
+            </label>
+            <input
+              type="text"
+              name="business_work_days"
+              value={form.business_work_days}
+              onChange={handleChange}
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
+              placeholder="0,1,2,3,4"
+            />
+            <p className="text-sm text-gray-400 mt-1">
+              0=Monday, 1=Tuesday, ..., 6=Sunday. Example: "0,1,2,3,4" for Mon-Fri
+            </p>
           </div>
         </div>
 

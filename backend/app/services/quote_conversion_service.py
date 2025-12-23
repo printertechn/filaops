@@ -158,7 +158,7 @@ def convert_quote_to_order(
             product = db.query(Product).get(quote.product_id)
             bom = db.query(BOM).filter(
                 BOM.product_id == product.id,
-                BOM.active == True
+                BOM.active.is_(True)
             ).first()
         else:
             # Create product and BOM now

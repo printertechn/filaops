@@ -4,7 +4,7 @@ Production Order Pydantic Schemas
 Manufacturing Orders (MOs) for tracking production of finished goods.
 """
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 from decimal import Decimal
 from enum import Enum

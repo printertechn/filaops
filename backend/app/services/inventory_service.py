@@ -6,8 +6,9 @@ Handles automatic inventory transactions for:
 - Shipping (consume packaging materials, issue finished goods)
 """
 from decimal import Decimal
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import datetime
 
 from app.models.inventory import Inventory, InventoryTransaction, InventoryLocation
@@ -133,8 +134,78 @@ def get_or_create_inventory(
         )
         db.add(inventory)
         db.flush()
+    else:
+        # Validate allocated doesn't exceed on_hand (consistency check)
+        allocated = Decimal(str(inventory.allocated_quantity))
+        on_hand = Decimal(str(inventory.on_hand_quantity))
+        if allocated > on_hand:
+            logger.warning(
+                f"Inventory consistency issue detected: Product {product_id}, Location {location_id}: "
+                f"Allocated ({allocated}) exceeds On Hand ({on_hand}). "
+                f"Available quantity would be negative."
+            )
 
     return inventory
+
+
+def validate_inventory_consistency(
+    db: Session,
+    product_id: Optional[int] = None,
+    location_id: Optional[int] = None,
+    auto_fix: bool = False
+) -> List[Dict[str, Any]]:
+    """
+    Validate inventory consistency: allocated should not exceed on_hand.
+    
+    Args:
+        db: Database session
+        product_id: Optional filter by product
+        location_id: Optional filter by location
+        auto_fix: If True, automatically fix inconsistencies by reducing allocated to on_hand
+        
+    Returns:
+        List of inconsistency records found/fixed
+    """
+    query = db.query(Inventory)
+    if product_id:
+        query = query.filter(Inventory.product_id == product_id)
+    if location_id:
+        query = query.filter(Inventory.location_id == location_id)
+    
+    inconsistencies = []
+    for inv in query.all():
+        allocated = Decimal(str(inv.allocated_quantity))
+        on_hand = Decimal(str(inv.on_hand_quantity))
+        available = on_hand - allocated
+        
+        if allocated > on_hand:
+            inconsistency = {
+                "product_id": inv.product_id,
+                "location_id": inv.location_id,
+                "on_hand": float(on_hand),
+                "allocated": float(allocated),
+                "available": float(available),
+                "issue": "allocated_exceeds_on_hand",
+                "fixed": False,
+            }
+            
+            if auto_fix:
+                # Fix by reducing allocated to on_hand
+                inv.allocated_quantity = on_hand
+                inv.updated_at = datetime.utcnow()
+                inconsistency["fixed"] = True
+                inconsistency["new_allocated"] = float(on_hand)
+                logger.info(
+                    f"Fixed inventory inconsistency: Product {inv.product_id}, "
+                    f"Location {inv.location_id}: Reduced allocated from {allocated} to {on_hand}"
+                )
+            
+            inconsistencies.append(inconsistency)
+    
+    if auto_fix and inconsistencies:
+        db.commit()
+    
+    return inconsistencies
 
 
 def create_inventory_transaction(
@@ -148,6 +219,9 @@ def create_inventory_transaction(
     notes: Optional[str] = None,
     cost_per_unit: Optional[Decimal] = None,
     created_by: Optional[str] = None,
+    approval_reason: Optional[str] = None,
+    approved_by: Optional[str] = None,
+    allow_negative: bool = False,
 ) -> InventoryTransaction:
     """
     Create an inventory transaction and update inventory quantities.
@@ -156,44 +230,295 @@ def create_inventory_transaction(
         db: Database session
         product_id: Product being transacted
         location_id: Location for the transaction
-        transaction_type: receipt, issue, consumption, adjustment
+        transaction_type: receipt, issue, consumption, adjustment, negative_adjustment
         quantity: Quantity (positive for receipt, positive for issue/consumption - will be subtracted)
         reference_type: production_order, sales_order, etc.
         reference_id: ID of the reference document
         notes: Optional notes
         cost_per_unit: Optional cost per unit
         created_by: User who created the transaction
+        approval_reason: Reason for negative inventory approval (required if negative)
+        approved_by: User approving negative inventory (required if negative)
+        allow_negative: If True, allow negative inventory with approval
 
     Returns:
         Created InventoryTransaction
+
+    Raises:
+        ValueError: If negative inventory would occur without approval
     """
     # Get or create inventory record
     inventory = get_or_create_inventory(db, product_id, location_id)
+
+    # Check for negative inventory for consumption transactions
+    requires_approval = False
+    if transaction_type in ["issue", "consumption", "shipment", "scrap"]:
+        # Calculate what available quantity would be after this transaction
+        current_available = Decimal(str(inventory.on_hand_quantity)) - Decimal(str(inventory.allocated_quantity))
+        new_available = current_available - quantity
+        
+        if new_available < 0:
+            if not allow_negative or not approval_reason or not approved_by:
+                requires_approval = True
+                # Don't raise error - create transaction but mark as requiring approval
+                # The calling code should handle the approval workflow
+            else:
+                # Negative inventory is allowed with approval
+                logger.warning(
+                    f"Negative inventory transaction approved: Product {product_id}, "
+                    f"Available: {current_available}, Consuming: {quantity}, "
+                    f"New Available: {new_available}, Reason: {approval_reason}, "
+                    f"Approved by: {approved_by}"
+                )
 
     # Create transaction record
     transaction = InventoryTransaction(
         product_id=product_id,
         location_id=location_id,
-        transaction_type=transaction_type,
+        transaction_type=transaction_type if not requires_approval else "negative_adjustment",
         quantity=quantity,
         reference_type=reference_type,
         reference_id=reference_id,
         notes=notes,
         cost_per_unit=cost_per_unit,
         created_by=created_by,
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
+        requires_approval=requires_approval,
+        approval_reason=approval_reason,
+        approved_by=approved_by,
+        approved_at=datetime.utcnow() if approved_by else None,
     )
     db.add(transaction)
 
-    # Update inventory based on transaction type
-    if transaction_type == "receipt":
-        inventory.on_hand_quantity = Decimal(str(inventory.on_hand_quantity)) + quantity
-    elif transaction_type in ["issue", "consumption", "shipment", "scrap"]:
-        inventory.on_hand_quantity = Decimal(str(inventory.on_hand_quantity)) - quantity
+    # Only update inventory if approved or not requiring approval
+    if not requires_approval or (allow_negative and approved_by):
+        # Update inventory based on transaction type
+        if transaction_type == "receipt":
+            inventory.on_hand_quantity = Decimal(str(inventory.on_hand_quantity)) + quantity
+        elif transaction_type == "adjustment":
+            # Adjustment can be positive or negative - quantity is already signed
+            # For adjustments, we set the quantity directly (not add/subtract)
+            # But since we're using create_inventory_transaction, we need to handle it
+            # The adjustment endpoint will handle setting the exact quantity
+            inventory.on_hand_quantity = Decimal(str(inventory.on_hand_quantity)) - quantity
+        elif transaction_type in ["issue", "consumption", "shipment", "scrap", "negative_adjustment"]:
+            inventory.on_hand_quantity = Decimal(str(inventory.on_hand_quantity)) - quantity
 
-    inventory.updated_at = datetime.utcnow()
+        inventory.updated_at = datetime.utcnow()
+    else:
+        # Transaction created but inventory not updated - requires approval
+        logger.info(
+            f"Inventory transaction {transaction.id} created but requires approval "
+            f"for negative inventory: Product {product_id}, Quantity: {quantity}"
+        )
 
     return transaction
+
+
+def reserve_production_materials(
+    db: Session,
+    production_order: ProductionOrder,
+    created_by: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Reserve (allocate) materials when a production order is scheduled.
+    
+    This increases the allocated_quantity on inventory records, reducing
+    available quantity without actually consuming the materials.
+    
+    Materials are reserved based on BOM quantity * ordered quantity.
+    
+    Args:
+        db: Database session
+        production_order: The production order being scheduled
+        created_by: User scheduling the order
+    
+    Returns:
+        List of reservation records with details about what was reserved
+    """
+    reservations = []
+    location = get_or_create_default_location(db)
+    
+    # Get BOM for the product
+    bom = db.query(BOM).filter(
+        BOM.product_id == production_order.product_id,
+        BOM.active.is_(True)
+    ).first()
+    
+    if not bom:
+        logger.warning(f"No active BOM found for product {production_order.product_id} - no materials to reserve")
+        return reservations
+    
+    quantity_ordered = Decimal(str(production_order.quantity_ordered or 0))
+    
+    # Get BOM lines for production consumption
+    bom_lines = db.query(BOMLine).filter(
+        BOMLine.bom_id == bom.id,
+        BOMLine.consume_stage == "production",
+    ).all()
+    
+    for line in bom_lines:
+        # Skip cost-only items (machine time, overhead)
+        if line.is_cost_only:
+            continue
+        
+        # Skip non-inventory items
+        component = db.query(Product).filter(Product.id == line.component_id).first()
+        if not component:
+            continue
+        
+        # Calculate quantity to reserve (BOM qty per unit * ordered units)
+        # Apply scrap factor if any
+        base_qty = Decimal(str(line.quantity))
+        scrap_factor = Decimal(str(line.scrap_factor or 0)) / Decimal("100")
+        qty_with_scrap = base_qty * (Decimal("1") + scrap_factor)
+        bom_qty = qty_with_scrap * quantity_ordered
+        
+        # UOM Conversion: Convert BOM line unit to component's inventory unit
+        line_unit = (line.unit or component.unit or "EA").upper()
+        component_unit = (component.unit or "EA").upper()
+        
+        try:
+            total_qty, _ = convert_and_generate_notes(
+                db=db,
+                bom_qty=bom_qty,
+                line_unit=line_unit,
+                component_unit=component_unit,
+                component_name=component.name,
+                component_sku=component.sku,
+                reference_prefix="Reserved for PO#",
+                reference_code=production_order.code,
+            )
+        except UOMConversionError as e:
+            logger.error(f"Failed to reserve materials: {e}")
+            continue
+        
+        # Get or create inventory record
+        inventory = get_or_create_inventory(db, line.component_id, location.id)
+        
+        # Increase allocated quantity
+        current_allocated = Decimal(str(inventory.allocated_quantity))
+        current_on_hand = Decimal(str(inventory.on_hand_quantity))
+        new_allocated = current_allocated + total_qty
+        available_after = current_on_hand - new_allocated
+        
+        inventory.allocated_quantity = new_allocated
+        inventory.updated_at = datetime.utcnow()
+        
+        # Create reservation transaction for audit trail
+        txn = InventoryTransaction(
+            product_id=line.component_id,
+            location_id=location.id,
+            transaction_type="reservation",
+            quantity=total_qty,
+            reference_type="production_order",
+            reference_id=production_order.id,
+            notes=f"Reserved for PO#{production_order.code}: {total_qty} {component_unit} of {component.name}",
+            cost_per_unit=get_effective_cost(component),
+            created_by=created_by,
+            created_at=datetime.utcnow(),
+        )
+        db.add(txn)
+        
+        reservation_info = {
+            "product_id": line.component_id,
+            "product_sku": component.sku,
+            "product_name": component.name,
+            "quantity_reserved": float(total_qty),
+            "unit": component_unit,
+            "on_hand": float(current_on_hand),
+            "allocated_after": float(new_allocated),
+            "available_after": float(available_after),
+            "is_shortage": available_after < 0,
+        }
+        reservations.append(reservation_info)
+        
+        if available_after < 0:
+            logger.warning(
+                f"Material shortage after reservation: {component.sku} - "
+                f"Available: {available_after} {component_unit} (shortage of {-available_after})"
+            )
+        else:
+            logger.info(
+                f"Reserved {total_qty} {component_unit} of {component.sku} "
+                f"for PO#{production_order.code}"
+            )
+    
+    return reservations
+
+
+def release_production_reservations(
+    db: Session,
+    production_order: ProductionOrder,
+    created_by: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Release (un-allocate) materials that were reserved for a production order.
+    
+    Called when:
+    - Production order is cancelled/unscheduled
+    - Before consuming actuals (to release then consume)
+    
+    Args:
+        db: Database session
+        production_order: The production order
+        created_by: User performing the action
+    
+    Returns:
+        List of release records
+    """
+    releases = []
+    location = get_or_create_default_location(db)
+    
+    # Find all reservation transactions for this PO
+    reservation_txns = db.query(InventoryTransaction).filter(
+        InventoryTransaction.reference_type == "production_order",
+        InventoryTransaction.reference_id == production_order.id,
+        InventoryTransaction.transaction_type == "reservation",
+    ).all()
+    
+    for txn in reservation_txns:
+        # Decrease allocated quantity
+        inventory = db.query(Inventory).filter(
+            Inventory.product_id == txn.product_id,
+            Inventory.location_id == txn.location_id,
+        ).first()
+        
+        if inventory:
+            current_allocated = Decimal(str(inventory.allocated_quantity))
+            release_qty = Decimal(str(txn.quantity))
+            new_allocated = max(Decimal("0"), current_allocated - release_qty)
+            
+            inventory.allocated_quantity = new_allocated
+            inventory.updated_at = datetime.utcnow()
+            
+            # Create release transaction for audit
+            release_txn = InventoryTransaction(
+                product_id=txn.product_id,
+                location_id=txn.location_id,
+                transaction_type="reservation_release",
+                quantity=release_qty,
+                reference_type="production_order",
+                reference_id=production_order.id,
+                notes=f"Released reservation for PO#{production_order.code}",
+                created_by=created_by,
+                created_at=datetime.utcnow(),
+            )
+            db.add(release_txn)
+            
+            component = db.query(Product).filter(Product.id == txn.product_id).first()
+            releases.append({
+                "product_id": txn.product_id,
+                "product_sku": component.sku if component else "Unknown",
+                "quantity_released": float(release_qty),
+                "new_allocated": float(new_allocated),
+            })
+            
+            logger.info(
+                f"Released reservation of {release_qty} for PO#{production_order.code}"
+            )
+    
+    return releases
 
 
 def consume_production_materials(
@@ -201,28 +526,36 @@ def consume_production_materials(
     production_order: ProductionOrder,
     quantity_completed: Decimal,
     created_by: Optional[str] = None,
+    release_reservations: bool = True,
 ) -> List[InventoryTransaction]:
     """
     Consume raw materials based on BOM when production order completes.
 
     Only consumes items with consume_stage='production' and cost_only=False.
+    
+    If release_reservations=True (default), first releases any existing 
+    reservations before consuming actual quantities.
 
     Args:
         db: Database session
         production_order: The completed production order
-        quantity_completed: Number of units completed
+        quantity_completed: Number of units completed (actual, may differ from ordered)
         created_by: User completing the order
+        release_reservations: If True, release reservations before consuming
 
     Returns:
         List of created inventory transactions
     """
+    # Release reservations first if requested
+    if release_reservations:
+        release_production_reservations(db, production_order, created_by)
     transactions = []
     location = get_or_create_default_location(db)
 
     # Get BOM for the product
     bom = db.query(BOM).filter(
         BOM.product_id == production_order.product_id,
-        BOM.active == True
+        BOM.active.is_(True)
     ).first()
 
     if not bom:
@@ -296,46 +629,71 @@ def receive_finished_goods(
     production_order: ProductionOrder,
     quantity_completed: Decimal,
     created_by: Optional[str] = None,
-) -> Optional[InventoryTransaction]:
+) -> Tuple[Optional[InventoryTransaction], Optional[InventoryTransaction]]:
     """
     Add finished goods to inventory when production order completes.
+    Handles overruns by creating separate transactions for ordered vs overrun quantities.
 
     Args:
         db: Database session
         production_order: The completed production order
-        quantity_completed: Number of units completed
+        quantity_completed: Number of units completed (may exceed ordered)
         created_by: User completing the order
 
     Returns:
-        Created inventory transaction, or None if product not found
+        Tuple of (ordered_receipt_txn, overrun_receipt_txn) - overrun_txn is None if no overrun
     """
     location = get_or_create_default_location(db)
 
     product = db.query(Product).filter(Product.id == production_order.product_id).first()
     if not product:
         logger.error(f"Product {production_order.product_id} not found for production order")
-        return None
+        return None, None
 
-    # Create receipt transaction for finished goods
-    txn = create_inventory_transaction(
+    quantity_ordered = Decimal(str(production_order.quantity_ordered or 0))
+    overrun_qty = max(Decimal("0"), quantity_completed - quantity_ordered)
+
+    # Create receipt transaction for ordered quantity
+    ordered_txn = create_inventory_transaction(
         db=db,
         product_id=production_order.product_id,
         location_id=location.id,
         transaction_type="receipt",
-        quantity=quantity_completed,
+        quantity=quantity_ordered,
         reference_type="production_order",
         reference_id=production_order.id,
-        notes=f"Completed production PO#{production_order.code}",
+        notes=f"Completed production PO#{production_order.code} (ordered quantity)",
         cost_per_unit=get_effective_cost(product),
         created_by=created_by,
     )
 
-    logger.info(
-        f"Received {quantity_completed} units of {product.sku} "
-        f"from production order {production_order.id}"
-    )
+    overrun_txn = None
+    if overrun_qty > 0:
+        # Create separate receipt transaction for overrun (MTS stock)
+        overrun_txn = create_inventory_transaction(
+            db=db,
+            product_id=production_order.product_id,
+            location_id=location.id,
+            transaction_type="receipt",
+            quantity=overrun_qty,
+            reference_type="production_order",
+            reference_id=production_order.id,
+            notes=f"MTS overrun from PO#{production_order.code}: {overrun_qty} units added to stock",
+            cost_per_unit=get_effective_cost(product),
+            created_by=created_by,
+        )
+        logger.info(
+            f"Received {quantity_completed} units of {product.sku} "
+            f"from production order {production_order.id} "
+            f"({quantity_ordered} ordered + {overrun_qty} MTS overrun)"
+        )
+    else:
+        logger.info(
+            f"Received {quantity_completed} units of {product.sku} "
+            f"from production order {production_order.id}"
+        )
 
-    return txn
+    return ordered_txn, overrun_txn
 
 
 def process_production_completion(
@@ -343,23 +701,24 @@ def process_production_completion(
     production_order: ProductionOrder,
     quantity_completed: Decimal,
     created_by: Optional[str] = None,
-) -> Tuple[List[InventoryTransaction], Optional[InventoryTransaction]]:
+) -> Tuple[List[InventoryTransaction], Optional[InventoryTransaction], Optional[InventoryTransaction]]:
     """
     Process all inventory transactions for production order completion.
 
     1. Consumes raw materials based on BOM (production stage items)
-    2. Adds finished goods to inventory
+    2. Adds finished goods to inventory (ordered quantity)
+    3. Adds overrun quantity to inventory as MTS stock (if any)
 
     Args:
         db: Database session
         production_order: The completed production order
-        quantity_completed: Number of units completed
+        quantity_completed: Number of units completed (may exceed ordered)
         created_by: User completing the order
 
     Returns:
-        Tuple of (material_consumption_txns, finished_goods_receipt_txn)
+        Tuple of (material_consumption_txns, ordered_receipt_txn, overrun_receipt_txn)
     """
-    # Consume materials
+    # Consume materials (based on actual quantity completed, including overrun)
     consumption_txns = consume_production_materials(
         db=db,
         production_order=production_order,
@@ -367,15 +726,15 @@ def process_production_completion(
         created_by=created_by,
     )
 
-    # Receive finished goods
-    receipt_txn = receive_finished_goods(
+    # Receive finished goods (handles overruns automatically)
+    ordered_txn, overrun_txn = receive_finished_goods(
         db=db,
         production_order=production_order,
         quantity_completed=quantity_completed,
         created_by=created_by,
     )
 
-    return consumption_txns, receipt_txn
+    return consumption_txns, ordered_txn, overrun_txn
 
 
 def consume_shipping_materials(
@@ -413,7 +772,7 @@ def consume_shipping_materials(
         # Get BOM for product
         bom = db.query(BOM).filter(
             BOM.product_id == product_id,
-            BOM.active == True
+            BOM.active.is_(True)
         ).first()
 
         if not bom:

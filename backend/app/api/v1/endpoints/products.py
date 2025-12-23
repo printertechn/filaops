@@ -70,6 +70,8 @@ async def list_products(
     category: Optional[str] = None,
     active_only: bool = True,
     search: Optional[str] = None,
+    has_bom: Optional[bool] = None,
+    procurement_type: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
     db: Session = Depends(get_db)
@@ -80,6 +82,8 @@ async def list_products(
     - **category**: Filter by category (e.g., 'Finished Goods', 'Raw Materials')
     - **active_only**: Only show active products (default: True)
     - **search**: Search by SKU or name
+    - **has_bom**: Filter by whether product has a BOM (True/False)
+    - **procurement_type**: Filter by procurement type ('make', 'buy', 'make_or_buy')
     - **limit**: Max results (default: 50)
     - **offset**: Pagination offset (default: 0)
     """
@@ -89,10 +93,16 @@ async def list_products(
 
         # Apply filters
         if active_only:
-            query = query.filter(Product.active == True)  # noqa: E712
+            query = query.filter(Product.active.is_(True))  # noqa: E712
 
         if category:
             query = query.filter(Product.category == category)
+
+        if has_bom is not None:
+            query = query.filter(Product.has_bom == has_bom)  # noqa: E712
+
+        if procurement_type:
+            query = query.filter(Product.procurement_type == procurement_type)
 
         if search:
             search_pattern = f"%{search}%"

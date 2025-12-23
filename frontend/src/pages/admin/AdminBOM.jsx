@@ -963,6 +963,40 @@ function BOMDetailView({
     }
   };
 
+  // Delete operation from routing
+  const handleDeleteOperation = async (operationId, operationName) => {
+    if (!window.confirm(`Are you sure you want to remove operation "${operationName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${API_URL}/api/v1/routings/operations/${operationId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (res.ok) {
+        toast.success("Operation removed successfully");
+        // Refresh the routing to get updated operation list and costs
+        await fetchProductRouting();
+      } else {
+        const errData = await res.json();
+        toast.error(
+          `Failed to remove operation: ${errData.detail || "Unknown error"}`
+        );
+      }
+    } catch (err) {
+      toast.error(
+        `Failed to remove operation: ${err.message || "Network error"}`
+      );
+    }
+  };
+
   // Calculate total process cost from routing
   const calculateProcessCost = () => {
     if (!productRouting) return 0;
@@ -1458,7 +1492,19 @@ function BOMDetailView({
                 </td>
                 <td className="py-2 px-3 text-gray-400">
                   ${parseFloat(line.component_cost || 0).toFixed(2)}/
-                  {line.unit || line.component_unit || "EA"}
+                  {(() => {
+                    // For materials, always show /KG regardless of line unit
+                    // Materials have unit="G" (we changed all materials to G)
+                    // and cost is stored per-KG (typically > $1)
+                    const isMaterial = line.is_material || 
+                                     line.component_cost_unit === "KG" ||
+                                     (line.component_unit === "G" && line.component_cost && parseFloat(line.component_cost) > 0.01);
+                    
+                    if (isMaterial) {
+                      return "KG";
+                    }
+                    return line.unit || line.component_unit || "EA";
+                  })()}
                 </td>
                 <td className="py-2 px-3 text-green-400 font-medium">
                   ${parseFloat(line.line_cost || 0).toFixed(2)}
@@ -1747,6 +1793,9 @@ function BOMDetailView({
                       <th className="text-left py-2 px-3 text-gray-400">
                         Cost
                       </th>
+                      <th className="text-center py-2 px-3 text-gray-400">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1755,8 +1804,41 @@ function BOMDetailView({
                         key={op.id || idx}
                         className="border-b border-gray-800"
                       >
-                        <td className="py-2 px-3 text-gray-500">
-                          {op.sequence}
+                        <td className="py-2 px-3">
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={op.sequence}
+                            onChange={async (e) => {
+                              const newSequence = parseInt(e.target.value) || 1;
+                              // Update sequence via API
+                              try {
+                                const res = await fetch(
+                                  `${API_URL}/api/v1/routings/operations/${op.id}`,
+                                  {
+                                    method: "PUT",
+                                    headers: {
+                                      Authorization: `Bearer ${token}`,
+                                      "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                      sequence: newSequence,
+                                    }),
+                                  }
+                                );
+                                if (res.ok) {
+                                  // Refresh routing to get updated sequence
+                                  await fetchProductRouting();
+                                } else {
+                                  toast.error("Failed to update sequence");
+                                }
+                              } catch (err) {
+                                toast.error(`Error: ${err.message}`);
+                              }
+                            }}
+                            className="w-16 text-center bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"
+                          />
                         </td>
                         <td className="py-2 px-3">
                           <div className="text-white font-medium">
@@ -1831,6 +1913,15 @@ function BOMDetailView({
                         </td>
                         <td className="py-2 px-3 text-green-400">
                           ${parseFloat(op.calculated_cost || 0).toFixed(2)}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          <button
+                            onClick={() => handleDeleteOperation(op.id, op.operation_name || op.operation_code)}
+                            className="text-red-400 hover:text-red-300 text-sm px-2 py-1 rounded hover:bg-red-400/10 transition-colors"
+                            title="Remove operation"
+                          >
+                            Remove
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -2870,6 +2961,10 @@ export default function AdminBOM() {
         if (!res.ok) throw new Error("Failed to fetch BOM details");
 
         const data = await res.json();
+        // Debug: Log line data to check for material flags
+        if (data.lines && data.lines.length > 0) {
+          console.log("BOM Line data sample:", data.lines[0]);
+        }
         setSelectedBOM(data);
       } catch (err) {
         setError(`Failed to load BOM: ${err.message || "Unknown error"}`);

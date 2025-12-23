@@ -24,16 +24,29 @@ export default function ScrapOrderModal({ productionOrder, onClose, onScrap }) {
   useEffect(() => {
     const fetchReasons = async () => {
       try {
+        console.log("Fetching scrap reasons from:", `${API_URL}/api/v1/production-orders/scrap-reasons`);
         const res = await fetch(`${API_URL}/api/v1/production-orders/scrap-reasons`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        console.log("Scrap reasons response:", res.status, res.statusText);
         if (res.ok) {
           const data = await res.json();
-          // API now returns { reasons: [], details: [], descriptions: {} }
-          setScrapReasons(data.details || []);
+          // API returns { reasons: [], details: [], descriptions: {} }
+          console.log("Scrap reasons API response:", data);
+          const reasons = data.details || data.reasons || [];
+          console.log("Parsed scrap reasons:", reasons);
+          setScrapReasons(reasons);
+          if (reasons.length === 0) {
+            console.warn("No scrap reasons found in database");
+          }
+        } else {
+          const errorText = await res.text();
+          console.error("Failed to fetch scrap reasons:", res.status, errorText);
+          toast.error(`Failed to load scrap reasons: ${res.status}`);
         }
       } catch (err) {
-        toast.error("Failed to load scrap reasons");
+        console.error("Error fetching scrap reasons:", err);
+        toast.error(`Network error: ${err.message}. Is the backend running on ${API_URL}?`);
       } finally {
         setLoading(false);
       }
@@ -82,15 +95,22 @@ export default function ScrapOrderModal({ productionOrder, onClose, onScrap }) {
       if (res.ok) {
         const data = await res.json();
         if (data.remake_order_code) {
+          // Show success with remake order info
           toast.success(
-            `Scrapped ${quantityScrapped} units. Remake ${data.remake_order_code} created.`
+            <div>
+              <p>Scrapped {quantityScrapped} units.</p>
+              <p className="mt-1 text-green-300">
+                Remake order <strong>{data.remake_order_code}</strong> created and ready for scheduling.
+              </p>
+            </div>,
+            { duration: 6000 }
           );
         } else if (isPartialScrap) {
           toast.success(`Scrapped ${quantityScrapped} of ${remainingQty} units. Order remains in progress.`);
         } else {
           toast.success("Order marked as scrapped");
         }
-        onScrap();
+        onScrap(data); // Pass data to parent so it can navigate to remake if needed
       } else {
         const err = await res.json();
         toast.error(err.detail || "Failed to scrap order");

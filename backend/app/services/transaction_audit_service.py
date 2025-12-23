@@ -210,7 +210,7 @@ class TransactionAuditService:
         elif po.product_id:
             return self.db.query(BOM).filter(
                 BOM.product_id == po.product_id,
-                BOM.active == True
+                BOM.active.is_(True)
             ).first()
         return None
 

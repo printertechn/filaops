@@ -54,7 +54,7 @@ async def list_units(
     query = db.query(UnitOfMeasure)
 
     if active_only:
-        query = query.filter(UnitOfMeasure.active == True)  # noqa: E712
+        query = query.filter(UnitOfMeasure.active.is_(True))  # noqa: E712
 
     if uom_class:
         query = query.filter(UnitOfMeasure.uom_class == uom_class)

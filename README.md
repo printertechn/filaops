@@ -101,11 +101,34 @@ The community version uses **development mode builds** for the frontend to maxim
 - ✅ **Unminified code** - Easy to debug and understand
 - ✅ **Source maps included** - Full stack traces with real line numbers
 - ✅ **Readable variable names** - Contributing PRs is easier
+- ✅ **Instant hot reload** - Changes appear immediately (no Docker rebuilds)
 - ⚠️ **Larger bundle size** (~2MB vs ~1MB minified)
 
 **This is intentional for self-hosted deployments** where source code is already visible and performance impact is negligible on local networks.
 
 > 📝 **For SaaS/Production hosting:** Production builds require refactoring ~30 components to fix React hook timing issues. See `frontend/PRODUCTION_BUILD_BLOCKED.md` for details. This only affects public-facing deployments; self-hosted users are unaffected.
+
+## 🆕 Recent Improvements
+
+### PostgreSQL-Only Architecture
+- **Simplified setup** - No Docker required, direct PostgreSQL connection
+- **Faster performance** - Native database drivers, no container overhead
+- **Easier debugging** - Direct access to database tools
+- **Better reliability** - Fewer moving parts
+
+### Enhanced Production Scheduling
+- **Gantt chart interface** - Visual timeline for production orders
+- **Drag & drop scheduling** - Easily reschedule orders
+- **Resource management** - Assign orders to specific machines
+- **Auto-arrange** - Optimize schedule layout automatically
+
+### Frontend Enhancements
+- **Better error handling** - More informative error messages
+- **Centralized API client** - Automatic retry and error recovery
+- **Improved components** - Enhanced scheduling, scrap, and update modals
+- **Instant hot reload** - See changes immediately during development
+
+See **[ANNOUNCEMENT_POSTGRES_MIGRATION.md](ANNOUNCEMENT_POSTGRES_MIGRATION.md)** for complete details.
 
 ---
 

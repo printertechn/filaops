@@ -101,8 +101,10 @@ function ToastItem({ toast, onClose }) {
 
   return (
     <div
+      data-testid="toast"
+      role="status"
+      aria-live="polite"
       className={`${style.bg} border rounded-lg p-4 shadow-lg backdrop-blur-sm animate-slide-in flex items-start gap-3`}
-      role="alert"
     >
       <span className={style.text}>{style.icon}</span>
       <p className={`${style.text} text-sm flex-1`}>{toast.message}</p>

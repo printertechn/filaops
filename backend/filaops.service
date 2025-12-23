@@ -1,0 +1,24 @@
+[Unit]
+Description=FilaOps ERP Backend
+After=network.target postgresql.service
+Documentation=https://github.com/Blb3D/filaops
+
+[Service]
+Type=simple
+User=filaops
+Group=filaops
+WorkingDirectory=/opt/filaops/backend
+EnvironmentFile=/opt/filaops/.env
+ExecStart=/opt/filaops/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8001
+Restart=always
+RestartSec=10
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/filaops
+
+[Install]
+WantedBy=multi-user.target

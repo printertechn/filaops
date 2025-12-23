@@ -525,8 +525,32 @@ export default function RoutingEditor({
                           key={index}
                           className="border-b border-gray-800 hover:bg-gray-800/50"
                         >
-                          <td className="border border-gray-700 p-2 text-white">
-                            {index + 1}
+                          <td className="border border-gray-700 p-2">
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={op.sequence || index + 1}
+                              onChange={(e) => {
+                                const newSequence = parseInt(e.target.value) || 1;
+                                updateOperation(index, "sequence", newSequence);
+                                // Auto-resequence other operations if needed
+                                const currentSeq = op.sequence || index + 1;
+                                if (newSequence !== currentSeq) {
+                                  operations.forEach((otherOp, otherIdx) => {
+                                    if (otherIdx !== index) {
+                                      const otherSeq = otherOp.sequence || otherIdx + 1;
+                                      if (otherSeq >= newSequence && otherSeq < currentSeq) {
+                                        updateOperation(otherIdx, "sequence", otherSeq + 1);
+                                      } else if (otherSeq <= newSequence && otherSeq > currentSeq) {
+                                        updateOperation(otherIdx, "sequence", otherSeq - 1);
+                                      }
+                                    }
+                                  });
+                                }
+                              }}
+                              className="w-16 text-center bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"
+                            />
                           </td>
                           <td className="border border-gray-700 p-2">
                             <div>

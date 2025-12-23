@@ -136,6 +136,8 @@ class ProductionOrder(Base):
     parent_order = relationship("ProductionOrder", remote_side=[id], backref="child_orders", foreign_keys=[parent_order_id])
     # Scrap/Remake relationships
     original_order = relationship("ProductionOrder", remote_side=[id], backref="remakes", foreign_keys=[remake_of_id])
+    # Spool tracking
+    spools_used = relationship("ProductionOrderSpool", back_populates="production_order", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<ProductionOrder {self.code}: {self.quantity_ordered} x {self.product.sku if self.product else 'N/A'}>"
@@ -271,3 +273,44 @@ class ProductionOrderOperation(Base):
         if not self.planned_run_minutes or not self.actual_run_minutes:
             return None
         return round((float(self.planned_run_minutes) / float(self.actual_run_minutes)) * 100, 1)
+
+
+class ProductionOrderMaterial(Base):
+    """
+    Material overrides for production orders.
+    
+    Tracks when materials are substituted or quantities adjusted during production.
+    Example: BOM calls for Bambu PLA Red, but we use Elegoo PLA Red instead.
+    
+    This ensures:
+    - Correct inventory consumption (from actual material used)
+    - Accurate COGS (using actual material cost)
+    - Audit trail of substitutions
+    """
+    __tablename__ = "production_order_materials"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    production_order_id = Column(Integer, ForeignKey('production_orders.id'), nullable=False, index=True)
+    bom_line_id = Column(Integer, ForeignKey('bom_lines.id'), nullable=True)  # Original BOM line
+    
+    # Original material from BOM
+    original_product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    original_quantity = Column(Numeric(18, 4), nullable=False)  # From BOM
+    
+    # Substituted/adjusted material
+    substitute_product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    planned_quantity = Column(Numeric(18, 4), nullable=False)  # Adjusted quantity to use
+    actual_quantity_used = Column(Numeric(18, 4), nullable=True)  # Recorded on completion
+    
+    # Audit trail
+    reason = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_by = Column(String(100), nullable=True)
+    
+    # Relationships
+    production_order = relationship("ProductionOrder", backref="material_overrides")
+    original_product = relationship("Product", foreign_keys=[original_product_id])
+    substitute_product = relationship("Product", foreign_keys=[substitute_product_id])
+    
+    def __repr__(self):
+        return f"<ProductionOrderMaterial PO#{self.production_order_id}: {self.original_product_id} → {self.substitute_product_id}>"

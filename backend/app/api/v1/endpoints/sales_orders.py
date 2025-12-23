@@ -109,12 +109,12 @@ def _create_production_orders_for_so(order: SalesOrder, db: Session, created_by:
 
             bom = db.query(BOM).filter(
                 BOM.product_id == line.product_id,
-                BOM.active == True  # noqa: E712 - SQL Server requires == True
+                BOM.active.is_(True)
             ).first()
 
             routing = db.query(Routing).filter(
                 Routing.product_id == line.product_id,
-                Routing.is_active == True  # noqa: E712 - SQL Server requires == True
+                Routing.is_active.is_(True)
             ).first()
 
             # Retry logic to handle race condition if locking fails
@@ -167,12 +167,12 @@ def _create_production_orders_for_so(order: SalesOrder, db: Session, created_by:
         if product and product.has_bom:
             bom = db.query(BOM).filter(
                 BOM.product_id == order.product_id,
-                BOM.active == True  # noqa: E712
+                BOM.active.is_(True)
             ).first()
 
             routing = db.query(Routing).filter(
                 Routing.product_id == order.product_id,
-                Routing.is_active == True  # noqa: E712
+                Routing.is_active.is_(True)
             ).first()
 
             # Retry logic to handle race condition if locking fails
@@ -601,7 +601,7 @@ async def convert_quote_to_sales_order(
     # Find the BOM for this product
     bom = db.query(BOM).filter(
         BOM.product_id == quote.product_id,
-        BOM.active == True  # noqa: E712
+        BOM.active.is_(True)
     ).first()
 
     # Generate production order code
@@ -818,7 +818,7 @@ async def get_required_orders_for_sales_order(
         # Find active BOM for this product
         bom = db.query(BOM).filter(
             BOM.product_id == product_id,
-            BOM.active == True  # noqa: E712 - SQL Server requires == True
+            BOM.active.is_(True)
         ).first()
 
         if not bom:
@@ -1633,12 +1633,12 @@ async def generate_production_orders(
             # Find BOM for product (first active one)
             bom = db.query(BOM).filter(
                 BOM.product_id == line.product_id,
-                BOM.active == True  # noqa: E712
+                BOM.active.is_(True)
             ).first()
 
             routing = db.query(Routing).filter(
                 Routing.product_id == line.product_id,
-                Routing.is_active == True  # noqa: E712
+                Routing.is_active.is_(True)
             ).first()
 
             po_code = get_next_po_code()
@@ -1676,12 +1676,12 @@ async def generate_production_orders(
 
                 bom = db.query(BOM).filter(
                     BOM.product_id == product_id,
-                    BOM.active == True  # noqa: E712
+                    BOM.active.is_(True)
                 ).first()
 
                 routing = db.query(Routing).filter(
                     Routing.product_id == product_id,
-                    Routing.is_active == True  # noqa: E712
+                    Routing.is_active.is_(True)
                 ).first()
 
                 po_code = get_next_po_code()

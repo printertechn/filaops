@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { API_URL } from "../config/api";
 import { useToast } from "./Toast";
 
@@ -13,11 +13,83 @@ export default function CompleteOrderModal({
   );
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [bomMaterials, setBomMaterials] = useState([]);
+  const [selectedSpools, setSelectedSpools] = useState({}); // { materialProductId: spoolId }
+  const [availableSpoolsByMaterial, setAvailableSpoolsByMaterial] = useState({}); // { materialProductId: [spools] }
+  const [loadingMaterials, setLoadingMaterials] = useState(false);
 
   const token = localStorage.getItem("adminToken");
 
   const quantityOrdered = productionOrder.quantity_ordered || 1;
   const isOverrun = quantityCompleted > quantityOrdered;
+
+  // Fetch BOM materials on mount
+  useEffect(() => {
+    fetchBomMaterials();
+  }, [productionOrder.id]);
+
+  const fetchBomMaterials = async () => {
+    if (!token || !productionOrder.product_id) return;
+    
+    setLoadingMaterials(true);
+    try {
+      // Get BOM for the product
+      const bomRes = await fetch(
+        `${API_URL}/api/v1/admin/bom/product/${productionOrder.product_id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (bomRes.ok) {
+        const bom = await bomRes.json();
+        if (bom && bom.lines) {
+          // Filter for filament/supply materials (production stage)
+          const materials = bom.lines
+            .filter((line) => line.consume_stage === "production" && !line.is_cost_only)
+            .map((line) => ({
+              component_id: line.component_id,
+              component_sku: line.component_sku,
+              component_name: line.component_name,
+              quantity: parseFloat(line.quantity || 0),
+              unit: line.unit || "EA",
+            }));
+          
+          setBomMaterials(materials);
+          
+          // Fetch available spools for each material
+          const spoolsMap = {};
+          for (const material of materials) {
+            try {
+              const spoolsRes = await fetch(
+                `${API_URL}/api/v1/spools/product/${material.component_id}/available`,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              if (spoolsRes.ok) {
+                const spoolsData = await spoolsRes.json();
+                spoolsMap[material.component_id] = spoolsData.spools || [];
+                // Auto-select first available spool if only one
+                if (spoolsData.spools && spoolsData.spools.length === 1) {
+                  setSelectedSpools((prev) => ({
+                    ...prev,
+                    [material.component_id]: spoolsData.spools[0].id,
+                  }));
+                }
+              } else {
+                spoolsMap[material.component_id] = [];
+              }
+            } catch (err) {
+              // Non-critical - spool selection is optional
+              spoolsMap[material.component_id] = [];
+            }
+          }
+          setAvailableSpoolsByMaterial(spoolsMap);
+        }
+      }
+    } catch (err) {
+      // Non-critical - spool tracking is optional
+    } finally {
+      setLoadingMaterials(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (quantityCompleted < 1) {
@@ -31,8 +103,17 @@ export default function CompleteOrderModal({
         quantity_completed: quantityCompleted.toString(),
       });
 
-      // Prepare request body with optional notes
-      const requestBody = notes.trim() ? { notes: notes.trim() } : {};
+      // Prepare request body with optional notes and spool selections
+      const requestBody = {};
+      if (notes.trim()) {
+        requestBody.notes = notes.trim();
+      }
+      if (Object.keys(selectedSpools).length > 0) {
+        requestBody.spools_used = Object.entries(selectedSpools).map(([productId, spoolId]) => ({
+          product_id: parseInt(productId),
+          spool_id: spoolId,
+        }));
+      }
 
       const res = await fetch(
         `${API_URL}/api/v1/production-orders/${productionOrder.id}/complete?${params}`,
@@ -42,10 +123,7 @@ export default function CompleteOrderModal({
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body:
-            Object.keys(requestBody).length > 0
-              ? JSON.stringify(requestBody)
-              : undefined,
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -129,6 +207,64 @@ export default function CompleteOrderModal({
             overruns)
           </p>
         </div>
+
+        {/* Spool Selection */}
+        {bomMaterials.length > 0 && (
+          <div className="mb-4">
+            <label className="block text-sm text-gray-400 mb-2">
+              Material Spools Used (Optional)
+            </label>
+            <div className="space-y-3 bg-gray-800/50 rounded-lg p-3">
+              {loadingMaterials ? (
+                <div className="text-gray-500 text-sm">Loading materials...</div>
+              ) : (
+                bomMaterials.map((material) => {
+                  const availableSpools = availableSpoolsByMaterial[material.component_id] || [];
+                  const requiredWeight = material.quantity * quantityCompleted;
+                  
+                  return (
+                    <div key={material.component_id} className="border-b border-gray-700 pb-3 last:border-0 last:pb-0">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="text-white text-sm font-medium">
+                            {material.component_name || material.component_sku}
+                          </div>
+                          <div className="text-gray-500 text-xs">
+                            Required: {requiredWeight.toFixed(3)} {material.unit}
+                          </div>
+                        </div>
+                      </div>
+                      {availableSpools.length > 0 ? (
+                        <select
+                          value={selectedSpools[material.component_id] || ""}
+                          onChange={(e) => {
+                            setSelectedSpools((prev) => ({
+                              ...prev,
+                              [material.component_id]: e.target.value ? parseInt(e.target.value) : null,
+                            }));
+                          }}
+                          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm"
+                        >
+                          <option value="">No spool selected</option>
+                          {availableSpools.map((spool) => (
+                            <option key={spool.id} value={spool.id}>
+                              {spool.spool_number} - {spool.current_weight_kg.toFixed(3)}kg remaining ({spool.weight_remaining_percent.toFixed(1)}%)
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="text-gray-500 text-xs">No active spools available</div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <p className="text-gray-500 text-xs mt-2">
+              Select spools to track material consumption and weight remaining
+            </p>
+          </div>
+        )}
 
         {/* Notes */}
         <div className="mb-4">

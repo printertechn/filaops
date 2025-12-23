@@ -41,7 +41,7 @@ class ProductionExecutionService:
         if not location:
             # Try to get any active location
             location = db.query(InventoryLocation).filter(
-                InventoryLocation.active == True
+                InventoryLocation.active.is_(True)
             ).first()
         
         if not location:
@@ -65,7 +65,7 @@ class ProductionExecutionService:
         elif po.product_id:
             return db.query(BOM).filter(
                 BOM.product_id == po.product_id,
-                BOM.active == True
+                BOM.active.is_(True)
             ).first()
         return None
 
@@ -329,26 +329,36 @@ class ProductionExecutionService:
             ).first()
 
             if inventory:
-                # Release reservation (reduce allocated)
-                new_allocated = max(0, float(inventory.allocated_quantity) - reserved_qty)
+                # Release reservation (reduce allocated by the FULL reserved amount)
+                # This ensures allocated is properly released even if we consumed less
+                current_allocated = float(inventory.allocated_quantity)
+                new_allocated = max(0, current_allocated - reserved_qty)
                 inventory.allocated_quantity = Decimal(str(new_allocated))
 
-                # Consume from on_hand
-                new_on_hand = max(0, float(inventory.on_hand_quantity) - consumed_qty)
-                inventory.on_hand_quantity = Decimal(str(new_on_hand))
-
-                # Create consumption transaction
-                consumption_txn = InventoryTransaction(
-                    product_id=res_txn.product_id,
-                    location_id=res_txn.location_id,
-                    transaction_type="consumption",
-                    reference_type="production_order",
-                    reference_id=po.id,
-                    quantity=Decimal(str(-consumed_qty)),
-                    notes=f"Consumed for {po.code}: {consumed_qty:.2f} units (good: {good_quantity}, bad: {bad_quantity})",
-                    created_by=created_by,
-                )
-                db.add(consumption_txn)
+                # Consume from on_hand (use the service function for consistency and validation)
+                from app.services.inventory_service import create_inventory_transaction
+                try:
+                    consumption_txn = create_inventory_transaction(
+                        db=db,
+                        product_id=res_txn.product_id,
+                        location_id=res_txn.location_id,
+                        transaction_type="consumption",
+                        quantity=Decimal(str(consumed_qty)),
+                        reference_type="production_order",
+                        reference_id=po.id,
+                        notes=f"Consumed for {po.code}: {consumed_qty:.2f} units (good: {good_quantity}, bad: {bad_quantity})",
+                        created_by=created_by,
+                        allow_negative=False,  # Don't allow negative without approval in this workflow
+                    )
+                except Exception as e:
+                    # If transaction requires approval, log warning but continue
+                    # The transaction was created but inventory wasn't updated
+                    logger.warning(
+                        f"Inventory transaction requires approval for PO {po.code}: {str(e)}"
+                    )
+                    # Still delete the reservation since materials were physically consumed
+                    db.delete(res_txn)
+                    continue
 
                 # Delete or mark reservation as consumed
                 db.delete(res_txn)
@@ -407,6 +417,10 @@ class ProductionExecutionService:
         new_on_hand = float(inventory.on_hand_quantity) + good_quantity
         inventory.on_hand_quantity = Decimal(str(new_on_hand))
 
+        # Get cost per unit for accounting (standard cost or average cost)
+        from app.services.inventory_service import get_effective_cost
+        production_cost_per_unit = get_effective_cost(product)
+        
         # Create production transaction
         production_txn = InventoryTransaction(
             product_id=po.product_id,
@@ -415,6 +429,7 @@ class ProductionExecutionService:
             reference_type="production_order",
             reference_id=po.id,
             quantity=Decimal(str(good_quantity)),
+            cost_per_unit=production_cost_per_unit,  # Capture cost for accounting
             notes=f"Produced {good_quantity:.2f} units for {po.code}",
             created_by=created_by,
         )

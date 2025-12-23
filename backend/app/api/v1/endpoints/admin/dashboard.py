@@ -125,7 +125,7 @@ async def get_dashboard(
         .join(Product)
         .filter(
             Product.type == "custom",
-            BOM.active == True,  # noqa: E712
+            BOM.active.is_(True),  # noqa: E712
         )
         .count()
     )
@@ -251,7 +251,7 @@ async def get_dashboard(
         .join(Product)
         .filter(
             Product.type == "custom",
-            BOM.active == True,  # noqa: E712
+            BOM.active.is_(True),  # noqa: E712
         )
         .order_by(desc(BOM.created_at))
         .limit(10)
@@ -324,10 +324,10 @@ async def get_dashboard_summary(
     boms_needing_review = (
         db.query(BOM)
         .join(Product)
-        .filter(BOM.active == True)  # noqa: E712
+        .filter(BOM.active.is_(True))  # noqa: E712
         .count()
     )
-    active_boms = db.query(BOM).filter(BOM.active == True).count()  # noqa: E712
+    active_boms = db.query(BOM).filter(BOM.active.is_(True)).count()  # noqa: E712
 
     # Low Stock Items (below reorder point + MRP shortages)
     # Use the same logic as /items/low-stock endpoint - just get the count
@@ -342,7 +342,7 @@ async def get_dashboard_summary(
     
     # Get all products with reorder points
     products_with_reorder = db.query(Product).filter(
-        Product.active == True,  # noqa: E712
+        Product.active.is_(True),  # noqa: E712
         Product.reorder_point.isnot(None),
         Product.reorder_point > 0
     ).all()
@@ -440,6 +440,59 @@ async def get_dashboard_summary(
         SalesOrder.status.in_(["confirmed", "in_production"])
     ).count()
     
+    # Production orders ready to start (materials available)
+    # Get released/pending production orders and check material availability
+    from app.api.v1.endpoints.production_orders import check_material_availability
+    from app.models.bom import BOMLine
+    from app.models.inventory import Inventory
+    
+    ready_to_start_count = 0
+    released_orders = db.query(ProductionOrder).filter(
+        ProductionOrder.status.in_(["pending", "released"])
+    ).all()
+    
+    for po in released_orders:
+        if not po.bom_id:
+            # No BOM = no materials needed, ready to start
+            ready_to_start_count += 1
+            continue
+        
+        bom = db.query(BOM).filter(BOM.id == po.bom_id).first()
+        if not bom:
+            continue
+        
+        bom_lines = db.query(BOMLine).filter(BOMLine.bom_id == bom.id).all()
+        all_available = True
+        
+        qty_multiplier = Decimal(str(po.quantity_ordered or 1))
+        
+        for line in bom_lines:
+            if line.is_cost_only:
+                continue
+            
+            component = db.query(Product).filter(Product.id == line.component_id).first()
+            if not component:
+                continue
+            
+            # Calculate required quantity
+            base_qty = Decimal(str(line.quantity or 0))
+            scrap_factor = Decimal(str(line.scrap_factor or 0)) / Decimal("100")
+            qty_with_scrap = base_qty * (Decimal("1") + scrap_factor)
+            required_qty = qty_with_scrap * qty_multiplier
+            
+            # Check available inventory
+            inv_result = db.query(
+                func.sum(Inventory.available_quantity)
+            ).filter(Inventory.product_id == line.component_id).scalar()
+            available_qty = Decimal(str(inv_result or 0))
+            
+            if available_qty < required_qty:
+                all_available = False
+                break
+        
+        if all_available:
+            ready_to_start_count += 1
+    
     # Revenue metrics
     revenue_30_days = db.query(func.sum(SalesOrder.grand_total)).filter(
         SalesOrder.payment_status == "paid",
@@ -464,6 +517,7 @@ async def get_dashboard_summary(
         "production": {
             "in_progress": production_in_progress,
             "scheduled": production_scheduled,
+            "ready_to_start": ready_to_start_count,
         },
         "boms": {
             "needs_review": boms_needing_review,
@@ -523,7 +577,7 @@ async def get_pending_bom_reviews(
     """
     boms = (
         db.query(BOM)
-        .filter(BOM.active == True)  # noqa: E712
+        .filter(BOM.active.is_(True))  # noqa: E712
         .order_by(desc(BOM.created_at))
         .limit(limit)
         .all()

@@ -420,7 +420,7 @@ class MRPService:
         # Get active BOM for this product
         bom = self.db.query(BOM).filter(
             BOM.product_id == product_id,
-            BOM.active == True
+            BOM.active.is_(True)
         ).first()
 
         if not bom:
@@ -773,7 +773,7 @@ class MRPService:
             for product_id, qty in products_to_ship:
                 bom = self.db.query(BOM).filter(
                     BOM.product_id == product_id,
-                    BOM.active == True
+                    BOM.active.is_(True)
                 ).first()
                 
                 if not bom:
@@ -1030,7 +1030,7 @@ class MRPService:
         # Get active BOM for product
         bom = self.db.query(BOM).filter(
             BOM.product_id == planned_order.product_id,
-            BOM.active == True
+            BOM.active.is_(True)
         ).first()
 
         po = ProductionOrder(

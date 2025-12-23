@@ -38,7 +38,8 @@ def create_tables(engine):
     from app.models import (  # noqa: F401
         User, RefreshToken, Product, BOM, BOMLine, Quote, SalesOrder,
         SalesOrderLine, ProductionOrder, Inventory, InventoryTransaction,
-        ScrapReason, UnitOfMeasure, CompanySettings
+        ScrapReason, UnitOfMeasure, CompanySettings, PurchaseOrder,
+        PurchaseOrderLine, Vendor, InventoryLocation
     )
 
     # Create all tables at once - handles foreign keys and self-references properly
