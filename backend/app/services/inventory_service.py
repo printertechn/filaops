@@ -16,7 +16,13 @@ from app.models.bom import BOM, BOMLine
 from app.models.production_order import ProductionOrder
 from app.models.sales_order import SalesOrder
 from app.logging_config import get_logger
-from app.services.uom_service import convert_quantity_safe, format_conversion_note, UOMConversionError
+from app.services.uom_service import (
+    convert_quantity_safe,
+    format_conversion_note,
+    UOMConversionError,
+    convert_cost_for_unit,
+    get_cost_reference_unit,
+)
 
 logger = get_logger(__name__)
 
@@ -41,6 +47,53 @@ def get_effective_cost(product: "Product") -> "Optional[Decimal]":
     if product.last_cost is not None:
         return Decimal(str(product.last_cost))
     return None
+
+
+
+
+# ============================================================================
+# CRITICAL: Cost Per Unit Conversion - DO NOT MODIFY WITHOUT DISCUSSION
+# ============================================================================
+# This function converts cost from PURCHASING unit ($/KG) to INVENTORY unit ($/G).
+#
+# WHY THIS EXISTS:
+# - Products store cost per purchasing unit (e.g., $14.99/KG for filament)
+# - Inventory transactions store quantity in base unit (e.g., grams)
+# - We must convert cost to match: $14.99/KG -> $0.01499/G
+#
+# WITHOUT THIS: 3856 G * $14.99 = $57,801 (caused $1.1M fake COGS!)
+# WITH THIS:    3856 G * $0.01499 = $57.80 (correct)
+#
+# DO NOT CHANGE without verifying accounting dashboard COGS calculations.
+# ============================================================================
+def get_effective_cost_per_inventory_unit(product: "Product") -> "Optional[Decimal]":
+    """
+    Get the effective cost for a product, converted to cost per inventory unit.
+
+    Product costs (standard_cost, average_cost, last_cost) are stored per the
+    cost reference unit (e.g., $/KG for materials). When inventory tracks in
+    a different unit (e.g., grams), we must convert to $/inventory_unit.
+
+    Example:
+        - Product has unit='G' and standard_cost=14.99 ($/KG)
+        - Returns: 0.01499 ($/G)
+        - So: 1000 G * $0.01499/G = $14.99 (correct!)
+
+    Args:
+        product: Product to get cost for
+
+    Returns:
+        Cost per inventory unit (e.g., $/G), or None if no cost available
+    """
+    base_cost = get_effective_cost(product)
+    if base_cost is None:
+        return None
+
+    inventory_unit = (product.unit or 'EA').upper().strip()
+    cost_reference_unit = get_cost_reference_unit(inventory_unit)
+
+    # Convert cost from reference unit to inventory unit
+    return convert_cost_for_unit(base_cost, cost_reference_unit, inventory_unit)
 
 
 def convert_and_generate_notes(
@@ -412,7 +465,7 @@ def reserve_production_materials(
             reference_type="production_order",
             reference_id=production_order.id,
             notes=f"Reserved for PO#{production_order.code}: {total_qty} {component_unit} of {component.name}",
-            cost_per_unit=get_effective_cost(component),
+            cost_per_unit=get_effective_cost_per_inventory_unit(component),
             created_by=created_by,
             created_at=datetime.utcnow(),
         )
@@ -610,7 +663,7 @@ def consume_production_materials(
             reference_type="production_order",
             reference_id=production_order.id,
             notes=notes,
-            cost_per_unit=get_effective_cost(component),
+            cost_per_unit=get_effective_cost_per_inventory_unit(component),
             created_by=created_by,
         )
         transactions.append(txn)
@@ -662,7 +715,7 @@ def receive_finished_goods(
         reference_type="production_order",
         reference_id=production_order.id,
         notes=f"Completed production PO#{production_order.code} (ordered quantity)",
-        cost_per_unit=get_effective_cost(product),
+        cost_per_unit=get_effective_cost_per_inventory_unit(product),
         created_by=created_by,
     )
 
@@ -678,7 +731,7 @@ def receive_finished_goods(
             reference_type="production_order",
             reference_id=production_order.id,
             notes=f"MTS overrun from PO#{production_order.code}: {overrun_qty} units added to stock",
-            cost_per_unit=get_effective_cost(product),
+            cost_per_unit=get_effective_cost_per_inventory_unit(product),
             created_by=created_by,
         )
         logger.info(
@@ -818,7 +871,7 @@ def consume_shipping_materials(
                 reference_type="sales_order",
                 reference_id=sales_order.id,
                 notes=notes,
-                cost_per_unit=get_effective_cost(component),
+                cost_per_unit=get_effective_cost_per_inventory_unit(component),
                 created_by=created_by,
             )
             transactions.append(txn)
@@ -874,7 +927,7 @@ def issue_shipped_goods(
             reference_type="sales_order",
             reference_id=sales_order.id,
             notes=f"Shipped for SO#{sales_order.order_number}: {product.name}",
-            cost_per_unit=get_effective_cost(product),
+            cost_per_unit=get_effective_cost_per_inventory_unit(product),
             created_by=created_by,
         )
         transactions.append(txn)
