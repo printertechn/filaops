@@ -35,93 +35,78 @@ depends_on = None
 
 def upgrade():
     # Sales Orders - Composite index for common filtering and sorting
-    op.execute("""
-        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_sales_orders_status_created_at' AND object_id = OBJECT_ID('sales_orders'))
-        BEGIN
-            CREATE NONCLUSTERED INDEX ix_sales_orders_status_created_at
-            ON sales_orders (status, created_at DESC)
-            INCLUDE (order_number, grand_total, payment_status);
-        END
-    """)
+    op.create_index(
+        'ix_sales_orders_status_created_at',
+        'sales_orders',
+        ['status', sa.text('created_at DESC')],
+        if_not_exists=True
+    )
 
-    # Sales Orders - Payment reporting index
-    op.execute("""
-        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_sales_orders_payment_status_paid_at' AND object_id = OBJECT_ID('sales_orders'))
-        BEGIN
-            CREATE NONCLUSTERED INDEX ix_sales_orders_payment_status_paid_at
-            ON sales_orders (payment_status, paid_at DESC)
-            WHERE payment_status = 'paid';
-        END
-    """)
+    # Sales Orders - Payment reporting index (partial index for paid orders)
+    op.create_index(
+        'ix_sales_orders_payment_status_paid_at',
+        'sales_orders',
+        ['payment_status', sa.text('paid_at DESC')],
+        if_not_exists=True,
+        postgresql_where=sa.text("payment_status = 'paid'")
+    )
 
     # Inventory - Product + Location lookup (most common inventory query)
-    op.execute("""
-        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_inventory_product_location' AND object_id = OBJECT_ID('inventory'))
-        BEGIN
-            CREATE NONCLUSTERED INDEX ix_inventory_product_location
-            ON inventory (product_id, location_id)
-            INCLUDE (on_hand_quantity, allocated_quantity, available_quantity);
-        END
-    """)
+    op.create_index(
+        'ix_inventory_product_location',
+        'inventory',
+        ['product_id', 'location_id'],
+        if_not_exists=True
+    )
 
     # Production Orders - Status and creation date for queue management
-    op.execute("""
-        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_production_orders_status_created_at' AND object_id = OBJECT_ID('production_orders'))
-        BEGIN
-            CREATE NONCLUSTERED INDEX ix_production_orders_status_created_at
-            ON production_orders (status, created_at DESC)
-            INCLUDE (code, product_id, quantity_ordered, priority);
-        END
-    """)
+    op.create_index(
+        'ix_production_orders_status_created_at',
+        'production_orders',
+        ['status', sa.text('created_at DESC')],
+        if_not_exists=True
+    )
 
     # Sales Order Lines - For BOM explosion and MRP calculations
-    op.execute("""
-        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_sales_order_lines_order_product' AND object_id = OBJECT_ID('sales_order_lines'))
-        BEGIN
-            CREATE NONCLUSTERED INDEX ix_sales_order_lines_order_product
-            ON sales_order_lines (sales_order_id, product_id)
-            INCLUDE (quantity, unit_price, total);
-        END
-    """)
+    op.create_index(
+        'ix_sales_order_lines_order_product',
+        'sales_order_lines',
+        ['sales_order_id', 'product_id'],
+        if_not_exists=True
+    )
 
     # BOM Lines - Component lookups for BOM explosion
-    op.execute("""
-        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_bom_lines_bom_component' AND object_id = OBJECT_ID('bom_lines'))
-        BEGIN
-            CREATE NONCLUSTERED INDEX ix_bom_lines_bom_component
-            ON bom_lines (bom_id, component_id)
-            INCLUDE (quantity, unit, scrap_factor, is_cost_only);
-        END
-    """)
+    op.create_index(
+        'ix_bom_lines_bom_component',
+        'bom_lines',
+        ['bom_id', 'component_id'],
+        if_not_exists=True
+    )
 
     # Products - Active items filtering
-    op.execute("""
-        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_products_active_type_procurement' AND object_id = OBJECT_ID('products'))
-        BEGIN
-            CREATE NONCLUSTERED INDEX ix_products_active_type_procurement
-            ON products (active, item_type, procurement_type)
-            INCLUDE (sku, name, has_bom, reorder_point);
-        END
-    """)
+    op.create_index(
+        'ix_products_active_type_procurement',
+        'products',
+        ['active', 'item_type', 'procurement_type'],
+        if_not_exists=True
+    )
 
     # Inventory Transactions - Product history and reporting
-    op.execute("""
-        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_inventory_transactions_product_created' AND object_id = OBJECT_ID('inventory_transactions'))
-        BEGIN
-            CREATE NONCLUSTERED INDEX ix_inventory_transactions_product_created
-            ON inventory_transactions (product_id, created_at DESC)
-            INCLUDE (transaction_type, quantity, reference_type, reference_id);
-        END
-    """)
+    op.create_index(
+        'ix_inventory_transactions_product_created',
+        'inventory_transactions',
+        ['product_id', sa.text('created_at DESC')],
+        if_not_exists=True
+    )
 
 
 def downgrade():
     # Drop indexes in reverse order
-    op.execute("DROP INDEX IF EXISTS ix_inventory_transactions_product_created ON inventory_transactions")
-    op.execute("DROP INDEX IF EXISTS ix_products_active_type_procurement ON products")
-    op.execute("DROP INDEX IF EXISTS ix_bom_lines_bom_component ON bom_lines")
-    op.execute("DROP INDEX IF EXISTS ix_sales_order_lines_order_product ON sales_order_lines")
-    op.execute("DROP INDEX IF EXISTS ix_production_orders_status_created_at ON production_orders")
-    op.execute("DROP INDEX IF EXISTS ix_inventory_product_location ON inventory")
-    op.execute("DROP INDEX IF EXISTS ix_sales_orders_payment_status_paid_at ON sales_orders")
-    op.execute("DROP INDEX IF EXISTS ix_sales_orders_status_created_at ON sales_orders")
+    op.drop_index('ix_inventory_transactions_product_created', table_name='inventory_transactions', if_exists=True)
+    op.drop_index('ix_products_active_type_procurement', table_name='products', if_exists=True)
+    op.drop_index('ix_bom_lines_bom_component', table_name='bom_lines', if_exists=True)
+    op.drop_index('ix_sales_order_lines_order_product', table_name='sales_order_lines', if_exists=True)
+    op.drop_index('ix_production_orders_status_created_at', table_name='production_orders', if_exists=True)
+    op.drop_index('ix_inventory_product_location', table_name='inventory', if_exists=True)
+    op.drop_index('ix_sales_orders_payment_status_paid_at', table_name='sales_orders', if_exists=True)
+    op.drop_index('ix_sales_orders_status_created_at', table_name='sales_orders', if_exists=True)
