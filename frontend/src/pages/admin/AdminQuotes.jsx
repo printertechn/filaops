@@ -816,7 +816,7 @@ function QuoteFormModal({ quote, onSave, onClose, token }) {
             throw new Error(err.detail || "Failed to create customer");
           }
         }
-      } catch {
+      } catch (err) {
         console.error("Failed to create customer:", err);
         // Continue with quote creation even if customer creation fails
       }

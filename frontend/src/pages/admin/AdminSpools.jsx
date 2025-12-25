@@ -63,7 +63,7 @@ export default function AdminSpools() {
         const data = await res.json();
         setProducts(data.items || data || []);
       }
-    } catch {
+    } catch (err) {
       console.error("Failed to fetch products:", err);
     }
   };
@@ -77,7 +77,7 @@ export default function AdminSpools() {
         const data = await res.json();
         setLocations(data.items || data || []);
       }
-    } catch {
+    } catch (err) {
       console.error("Failed to fetch locations:", err);
     }
   };

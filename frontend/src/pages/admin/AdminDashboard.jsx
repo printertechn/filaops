@@ -562,7 +562,7 @@ export default function AdminDashboard() {
         const data = await res.json();
         setSalesData(data);
       }
-    } catch {
+    } catch (err) {
       console.error("Failed to fetch sales data:", err);
     } finally {
       setSalesLoading(false);

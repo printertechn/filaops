@@ -340,7 +340,7 @@ export default function AdminShipping() {
         const data = await res.json();
         setShippingTrend(data);
       }
-    } catch {
+    } catch (err) {
       console.error("Failed to fetch shipping trend:", err);
     } finally {
       setTrendLoading(false);

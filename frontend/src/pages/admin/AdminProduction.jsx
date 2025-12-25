@@ -296,7 +296,7 @@ export default function AdminProduction() {
         const data = await res.json();
         setProductionTrend(data);
       }
-    } catch {
+    } catch (err) {
       console.error("Failed to fetch production trend:", err);
     } finally {
       setTrendLoading(false);

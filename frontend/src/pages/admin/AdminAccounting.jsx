@@ -23,7 +23,7 @@ function DashboardTab({ token }) {
       } else {
         setError(`Failed to load: ${res.status} ${res.statusText}`);
       }
-    } catch {
+    } catch (err) {
       console.error("Error fetching dashboard:", err);
       setError(`Network error: ${err.message}`);
     } finally {
@@ -255,7 +255,7 @@ function SalesJournalTab({ token }) {
       if (res.ok) {
         setData(await res.json());
       }
-    } catch {
+    } catch (err) {
       console.error("Error fetching journal:", err);
     } finally {
       setLoading(false);
@@ -529,7 +529,7 @@ function PaymentsTab({ token }) {
       } else {
         setFetchError(`Failed to load: ${res.status} ${res.statusText}`);
       }
-    } catch {
+    } catch (err) {
       console.error("Error fetching payments:", err);
       setFetchError(`Network error: ${err.message}`);
     } finally {
@@ -816,7 +816,7 @@ function COGSTab({ token }) {
       if (res.ok) {
         setData(await res.json());
       }
-    } catch {
+    } catch (err) {
       console.error("Error fetching COGS:", err);
     } finally {
       setLoading(false);
@@ -988,7 +988,7 @@ function TaxCenterTab({ token }) {
       if (res.ok) {
         setData(await res.json());
       }
-    } catch {
+    } catch (err) {
       console.error("Error fetching tax summary:", err);
     } finally {
       setLoading(false);

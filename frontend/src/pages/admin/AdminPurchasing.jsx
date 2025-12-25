@@ -330,7 +330,7 @@ export default function AdminPurchasing() {
         const data = await res.json();
         setPurchasingTrend(data);
       }
-    } catch {
+    } catch (err) {
       console.error("Failed to fetch purchasing trend:", err);
     } finally {
       setTrendLoading(false);
@@ -439,7 +439,7 @@ export default function AdminPurchasing() {
         const data = await res.json();
         setCompanySettings(data);
       }
-    } catch {
+    } catch (err) {
       // Non-critical - auto-calc tax just won't work
       console.error("Failed to fetch company settings:", err);
     }

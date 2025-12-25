@@ -209,7 +209,7 @@ export default function RecordPaymentModal({
           errorMessage || `Failed to record ${isRefund ? "refund" : "payment"}`
         );
       }
-    } catch {
+    } catch (err) {
       console.error("Payment recording error:", err);
       console.error("Error name:", err.name);
       console.error("Error message:", err.message);

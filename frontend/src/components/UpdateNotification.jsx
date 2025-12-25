@@ -17,7 +17,7 @@ const UpdateNotification = () => {
       const data = await res.json();
       setInstructions(data);
       setShowModal(true);
-    } catch {
+    } catch (err) {
       console.error("Failed to load instructions:", err);
       window.open("https://github.com/Blb3D/filaops/blob/main/UPGRADE.md", "_blank");
     } finally {
@@ -64,7 +64,7 @@ const UpdateNotification = () => {
       
       pollForServer();
       
-    } catch {
+    } catch (err) {
       console.error("Failed to trigger upgrade:", err);
       alert(`Failed to start upgrade: ${err.message}\n\nYou may need to upgrade manually.`);
       setLoading(false);

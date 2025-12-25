@@ -145,7 +145,7 @@ export default function AdminPrinters() {
         const data = await res.json();
         setMaintenanceLogs(data.items || []);
       }
-    } catch {
+    } catch (err) {
       console.error("Error fetching maintenance logs:", err);
     } finally {
       setMaintenanceLoading(false);
