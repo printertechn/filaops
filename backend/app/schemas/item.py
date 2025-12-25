@@ -40,6 +40,12 @@ class ProcurementType(str, Enum):
     MAKE_OR_BUY = "make_or_buy"  # Can be either (flexible sourcing)
 
 
+class StockingPolicy(str, Enum):
+    """How inventory is managed for this item"""
+    STOCKED = "stocked"       # Keep minimum on hand, reorder at reorder_point
+    ON_DEMAND = "on_demand"   # Only order when MRP shows actual demand
+
+
 # ============================================================================
 # Item Category Schemas
 # ============================================================================
@@ -125,10 +131,11 @@ class ItemBase(BaseModel):
     width_in: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
     height_in: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
 
-    # Purchasing
+    # Purchasing & Inventory
     lead_time_days: Optional[int] = Field(None, ge=0)
     min_order_qty: Optional[Decimal] = Field(None, ge=0)
-    reorder_point: Optional[Decimal] = Field(None, ge=0)
+    reorder_point: Optional[Decimal] = Field(None, ge=0, description="Reorder point (for stocked items)")
+    stocking_policy: StockingPolicy = Field(StockingPolicy.ON_DEMAND, description="How inventory is managed")
 
     # Identifiers
     upc: Optional[str] = Field(None, max_length=50)
@@ -186,10 +193,11 @@ class ItemUpdate(BaseModel):
     width_in: Optional[Decimal] = Field(None, ge=0)
     height_in: Optional[Decimal] = Field(None, ge=0)
 
-    # Purchasing
+    # Purchasing & Inventory
     lead_time_days: Optional[int] = Field(None, ge=0)
     min_order_qty: Optional[Decimal] = Field(None, ge=0)
     reorder_point: Optional[Decimal] = Field(None, ge=0)
+    stocking_policy: Optional[StockingPolicy] = None
 
     # Identifiers
     upc: Optional[str] = Field(None, max_length=50)
@@ -224,7 +232,8 @@ class ItemListResponse(BaseModel):
     on_hand_qty: Optional[Decimal] = None  # From inventory
     available_qty: Optional[Decimal] = None  # On hand - allocated
     reorder_point: Optional[Decimal] = None
-    needs_reorder: bool = False
+    stocking_policy: str = "on_demand"  # stocked or on_demand
+    needs_reorder: bool = False  # Only true for stocked items below reorder_point
 
     # Material info (for filament items)
     material_type_id: Optional[int] = None

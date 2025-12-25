@@ -108,6 +108,40 @@ class TestDashboardEndpoints:
             assert "key" in module
             assert "api_route" in module
 
+    def test_profit_summary_endpoint(self, client, admin_headers):
+        """Test profit summary endpoint returns proper structure"""
+        response = client.get("/api/v1/admin/dashboard/profit-summary", headers=admin_headers)
+        assert response.status_code == 200
+
+        data = response.json()
+
+        # Check all required fields exist
+        assert "revenue_this_month" in data
+        assert "revenue_ytd" in data
+        assert "cogs_this_month" in data
+        assert "cogs_ytd" in data
+        assert "gross_profit_this_month" in data
+        assert "gross_profit_ytd" in data
+
+        # Check that values are numeric (can be 0 or positive)
+        assert isinstance(float(data["revenue_this_month"]), (int, float))
+        assert isinstance(float(data["revenue_ytd"]), (int, float))
+        assert isinstance(float(data["cogs_this_month"]), (int, float))
+        assert isinstance(float(data["cogs_ytd"]), (int, float))
+        assert isinstance(float(data["gross_profit_this_month"]), (int, float))
+        assert isinstance(float(data["gross_profit_ytd"]), (int, float))
+
+        # Check margin percentages (can be None if no revenue)
+        if data["gross_margin_percent_this_month"] is not None:
+            assert isinstance(float(data["gross_margin_percent_this_month"]), (int, float))
+        if data["gross_margin_percent_ytd"] is not None:
+            assert isinstance(float(data["gross_margin_percent_ytd"]), (int, float))
+
+    def test_profit_summary_requires_admin(self, client, customer_headers):
+        """Test that profit summary requires admin access"""
+        response = client.get("/api/v1/admin/dashboard/profit-summary", headers=customer_headers)
+        assert response.status_code == 403
+
 
 class TestBOMListEndpoint:
     """Test BOM listing and filtering"""
@@ -366,7 +400,7 @@ class TestBOMLineEndpoints:
             sku="NEW-COMP-001",
             name="New Component",
             unit="EA",
-            cost=Decimal("5.00"),
+            standard_cost=Decimal("5.00"),
             active=True,
         )
         db_session.add(component)

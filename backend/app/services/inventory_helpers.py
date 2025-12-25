@@ -3,7 +3,6 @@ Inventory Helper Functions
 
 Utilities for handling material vs. non-material items in the inventory system.
 """
-from sqlalchemy.orm import Session
 from app.models.product import Product
 
 

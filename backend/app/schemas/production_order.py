@@ -4,7 +4,7 @@ Production Order Pydantic Schemas
 Manufacturing Orders (MOs) for tracking production of finished goods.
 """
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from datetime import datetime, date
 from decimal import Decimal
 from enum import Enum
@@ -174,6 +174,14 @@ class ProductionOrderUpdate(BaseModel):
     scheduled_start: Optional[datetime] = None
     scheduled_end: Optional[datetime] = None
     assigned_to: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = None
+
+
+class ProductionOrderScheduleRequest(BaseModel):
+    """Schedule a production order to a specific resource and time"""
+    scheduled_start: datetime
+    scheduled_end: datetime
+    resource_id: Optional[int] = Field(None, description="Resource/machine ID to assign")
     notes: Optional[str] = None
 
 

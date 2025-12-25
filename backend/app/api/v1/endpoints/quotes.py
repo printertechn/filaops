@@ -50,6 +50,9 @@ class ManualQuoteCreate(BaseModel):
     # Tax (if not provided, will use company settings default)
     apply_tax: Optional[bool] = Field(None, description="Whether to apply tax (uses company settings if None)")
 
+    # Shipping
+    shipping_cost: Optional[Decimal] = Field(None, ge=0, description="Shipping cost")
+
     # Notes
     customer_notes: Optional[str] = Field(None, max_length=1000)
     admin_notes: Optional[str] = Field(None, max_length=1000)
@@ -106,6 +109,7 @@ class QuoteListItem(BaseModel):
     subtotal: Optional[Decimal]
     tax_rate: Optional[Decimal]
     tax_amount: Optional[Decimal]
+    shipping_cost: Optional[Decimal] = None
     total_price: Decimal
     status: str
     customer_id: Optional[int]
@@ -298,6 +302,10 @@ async def create_quote(
         tax_amount = subtotal * tax_rate
         total_price = subtotal + tax_amount
 
+    # Add shipping cost
+    shipping_cost = request.shipping_cost or Decimal("0")
+    total_price = total_price + shipping_cost
+
     # Validate customer_id if provided
     if request.customer_id:
         customer = db.query(User).filter(
@@ -319,6 +327,7 @@ async def create_quote(
         subtotal=subtotal,
         tax_rate=tax_rate,
         tax_amount=tax_amount,
+        shipping_cost=shipping_cost if shipping_cost > 0 else None,
         total_price=total_price,
         material_type=request.material_type or "PLA",
         color=request.color,
@@ -863,6 +872,10 @@ async def generate_quote_pdf(
         if company_settings and company_settings.tax_name:
             tax_name = company_settings.tax_name
         table_data.append(['', '', '', f'{tax_name} ({tax_percent:.2f}%):', f"${float(quote.tax_amount):,.2f}"])
+
+    # Add shipping row if applicable
+    if quote.shipping_cost and float(quote.shipping_cost) > 0:
+        table_data.append(['', '', '', 'Shipping:', f"${float(quote.shipping_cost):,.2f}"])
 
     # Add total row
     table_data.append(['', '', '', 'TOTAL:', f"${float(quote.total_price or 0):,.2f}"])

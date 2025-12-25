@@ -3,7 +3,7 @@ Payment Pydantic Schemas
 """
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 
@@ -31,8 +31,14 @@ class PaymentCreate(BaseModel):
 
             # Payments shouldn't be dated more than 1 day in the future
             # (allow 1 day grace period for timezone differences)
-            future_limit = datetime.utcnow() + timedelta(days=1)
-            if v > future_limit:
+            # Use timezone-aware datetime to avoid comparison issues
+            now_utc = datetime.now(timezone.utc)
+            future_limit = now_utc + timedelta(days=1)
+
+            # Make v timezone-aware if it isn't already
+            v_aware = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+
+            if v_aware > future_limit:
                 raise ValueError(
                     f'Payment date cannot be more than 1 day in the future. '
                     f'Provided: {v.date()}, Maximum allowed: {future_limit.date()}'

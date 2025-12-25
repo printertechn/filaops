@@ -38,7 +38,7 @@ export default function ItemWizard({ isOpen, onClose, onSuccess, editingItem = n
   // Data loaded from API
   const [categories, setCategories] = useState(propCategories || []);
   const [components, setComponents] = useState([]);
-  const [workCenters, setWorkCenters] = useState([]);
+  const [_workCenters, setWorkCenters] = useState([]); // Reserved for routing step
   const [routingTemplates, setRoutingTemplates] = useState([]);
 
   // Material wizard state
@@ -165,7 +165,7 @@ export default function ItemWizard({ isOpen, onClose, onSuccess, editingItem = n
         const data = await res.json();
         setCategories(data);
       }
-    } catch (err) {
+    } catch {
       // Categories fetch failure is non-critical - category selector will be empty
     }
   };
@@ -198,7 +198,7 @@ export default function ItemWizard({ isOpen, onClose, onSuccess, editingItem = n
       }
 
       setComponents(allComponents);
-    } catch (err) {
+    } catch {
       // Components fetch failure is non-critical - component selector will be empty
     }
   };
@@ -212,7 +212,7 @@ export default function ItemWizard({ isOpen, onClose, onSuccess, editingItem = n
         const data = await res.json();
         setWorkCenters(data);
       }
-    } catch (err) {
+    } catch {
       // Work centers fetch failure is non-critical - work center selector will be empty
     }
   };
@@ -226,7 +226,7 @@ export default function ItemWizard({ isOpen, onClose, onSuccess, editingItem = n
         const data = await res.json();
         setRoutingTemplates(data);
       }
-    } catch (err) {
+    } catch {
       // Routing templates fetch failure is non-critical - templates list will be empty
     }
   };
@@ -240,7 +240,7 @@ export default function ItemWizard({ isOpen, onClose, onSuccess, editingItem = n
         const data = await typesRes.json();
         setMaterialTypes(data.materials || []);
       }
-    } catch (err) {
+    } catch {
       // Material types fetch failure is non-critical - material type selector will be empty
     }
   };
@@ -260,7 +260,7 @@ export default function ItemWizard({ isOpen, onClose, onSuccess, editingItem = n
         const data = await res.json();
         setAllColors(data.colors || []);
       }
-    } catch (err) {
+    } catch {
       // Colors fetch failure - color selector will be empty
     }
   };

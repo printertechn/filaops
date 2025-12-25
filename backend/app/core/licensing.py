@@ -11,7 +11,7 @@ Example:
 FILAOPS-PRO-a1b2c3d4-e5f6g7h8-i9j0k1l2
 """
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional, Dict
 from app.core.features import get_features_for_tier, LICENSING_ENABLED
 

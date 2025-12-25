@@ -41,9 +41,21 @@ from app.schemas.order_event import (
     OrderEventResponse,
     OrderEventListResponse,
 )
+from app.schemas.shipping_event import (
+    ShippingEventCreate,
+    ShippingEventResponse,
+    ShippingEventListResponse,
+)
 from app.models.order_event import OrderEvent
+from app.models.shipping_event import ShippingEvent
 from app.api.v1.endpoints.auth import get_current_user
-from app.services.inventory_service import process_shipment
+from app.services.event_service import record_shipping_event
+from app.services.inventory_service import process_shipment, reserve_production_materials
+from app.core.status_config import (
+    SalesOrderStatus,
+    PaymentStatus,
+    get_allowed_sales_order_transitions,
+)
 
 logger = get_logger(__name__)
 
@@ -223,6 +235,77 @@ def _create_production_orders_for_so(order: SalesOrder, db: Session, created_by:
 
 
 # ============================================================================
+# Status Transitions Metadata
+# ============================================================================
+
+
+@router.get("/status-transitions")
+async def get_sales_order_status_transitions(
+    current_status: Optional[str] = Query(None, description="Get transitions for a specific status"),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get valid status transitions for sales orders.
+
+    Returns:
+    - All valid statuses and their allowed transitions
+    - If current_status is provided, returns only transitions for that status
+
+    Used by frontend to show only valid status options in dropdowns.
+    """
+    all_statuses = [s.value for s in SalesOrderStatus]
+
+    if current_status:
+        if current_status not in all_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status '{current_status}'. Must be one of: {', '.join(all_statuses)}"
+            )
+        allowed = get_allowed_sales_order_transitions(current_status)
+        return {
+            "current_status": current_status,
+            "allowed_transitions": allowed,
+            "is_terminal": len(allowed) == 0,
+        }
+
+    # Return all statuses with their transitions
+    transitions = {}
+    for order_status in SalesOrderStatus:
+        allowed = get_allowed_sales_order_transitions(order_status.value)
+        transitions[order_status.value] = {
+            "allowed_transitions": allowed,
+            "is_terminal": len(allowed) == 0,
+        }
+
+    return {
+        "statuses": all_statuses,
+        "transitions": transitions,
+        "terminal_statuses": [s.value for s in SalesOrderStatus if len(get_allowed_sales_order_transitions(s.value)) == 0],
+    }
+
+
+@router.get("/payment-statuses")
+async def get_payment_statuses(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get valid payment status values for sales orders.
+
+    Used by frontend to populate payment status dropdowns.
+    """
+    return {
+        "statuses": [s.value for s in PaymentStatus],
+        "descriptions": {
+            PaymentStatus.PENDING.value: "Payment not yet received",
+            PaymentStatus.PARTIAL.value: "Partial payment received",
+            PaymentStatus.PAID.value: "Full payment received",
+            PaymentStatus.REFUNDED.value: "Payment refunded",
+            PaymentStatus.OVERDUE.value: "Payment is overdue",
+        },
+    }
+
+
+# ============================================================================
 # ENDPOINT: Create Manual Sales Order
 # ============================================================================
 
@@ -390,7 +473,7 @@ async def create_sales_order(
         source_order_id=request.source_order_id,
         product_name=product_name,
         quantity=total_quantity,
-        material_type=first_product.category or "PLA",  # Use category as material type fallback
+        material_type=first_product.item_category.name if first_product.item_category else "PLA",  # Use category name as fallback
         finish="standard",
         unit_price=total_price / total_quantity if total_quantity > 0 else Decimal("0"),
         total_price=total_price,
@@ -1328,6 +1411,19 @@ async def cancel_sales_order(
             detail=f"Cannot cancel order with status '{order.status}'"
         )
 
+    # Check for linked production orders that aren't cancelled
+    linked_wos = db.query(ProductionOrder).filter(
+        ProductionOrder.sales_order_id == order_id,
+        ProductionOrder.status != "cancelled"
+    ).all()
+
+    if linked_wos:
+        wo_codes = [wo.code for wo in linked_wos]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot cancel: {len(linked_wos)} work order(s) still active ({', '.join(wo_codes[:3])}{'...' if len(wo_codes) > 3 else ''}). Cancel work orders first."
+        )
+
     # Cancel order
     old_status = order.status
     order.status = "cancelled"
@@ -1492,7 +1588,7 @@ async def ship_order(
         created_by=current_user.email if current_user else None,
     )
 
-    # Record shipping event
+    # Record order event (for general activity timeline)
     record_order_event(
         db=db,
         order_id=order_id,
@@ -1502,6 +1598,19 @@ async def ship_order(
         user_id=current_user.id,
         metadata_key="tracking_number",
         metadata_value=tracking_number,
+    )
+
+    # Record shipping event (for dedicated shipping timeline)
+    record_shipping_event(
+        db=db,
+        sales_order_id=order_id,
+        event_type="label_purchased",
+        title="Shipping Label Created",
+        description=f"Carrier: {request.carrier}" + (f", Service: {request.service}" if request.service else ""),
+        tracking_number=tracking_number,
+        carrier=request.carrier,
+        user_id=current_user.id,
+        source="manual",
     )
 
     db.commit()
@@ -1669,6 +1778,14 @@ async def generate_production_orders(
 
             db.add(production_order)
             db.flush()  # Get the ID for the next PO code lookup
+
+            # Allocate materials for this production order
+            reserve_production_materials(
+                db=db,
+                production_order=production_order,
+                created_by=current_user.email,
+            )
+
             created_orders.append(po_code)
 
     else:
@@ -1710,6 +1827,15 @@ async def generate_production_orders(
                 )
 
                 db.add(production_order)
+                db.flush()  # Get the ID for allocation
+
+                # Allocate materials for this production order
+                reserve_production_materials(
+                    db=db,
+                    production_order=production_order,
+                    created_by=current_user.email,
+                )
+
                 created_orders.append(po_code)
             else:
                 raise HTTPException(
@@ -1997,3 +2123,128 @@ def record_order_event(
     )
     db.add(event)
     # Don't commit - let the calling function handle the transaction
+
+
+# ============================================================================
+# Shipping Events Timeline
+# ============================================================================
+
+@router.get("/{order_id}/shipping-events", response_model=ShippingEventListResponse)
+async def list_shipping_events(
+    order_id: int,
+    limit: int = Query(default=50, ge=1, le=200, description="Max events to return"),
+    offset: int = Query(default=0, ge=0, description="Offset for pagination"),
+    db: Session = Depends(get_db),
+):
+    """
+    List shipping events for a sales order
+
+    Returns a timeline of all shipping events (label purchase, in transit,
+    delivered, etc.) ordered by most recent first.
+    """
+    # Verify order exists
+    order = db.query(SalesOrder).filter(SalesOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Sales order not found")
+
+    # Query events with pagination
+    query = db.query(ShippingEvent).filter(
+        ShippingEvent.sales_order_id == order_id
+    ).order_by(desc(ShippingEvent.created_at))
+
+    total = query.count()
+    events = query.offset(offset).limit(limit).all()
+
+    # Build response with user names
+    items = []
+    for event in events:
+        user_name = None
+        if event.user_id and event.user:
+            user_name = event.user.name or event.user.email
+
+        items.append(ShippingEventResponse(
+            id=event.id,
+            sales_order_id=event.sales_order_id,
+            user_id=event.user_id,
+            user_name=user_name,
+            event_type=event.event_type,
+            title=event.title,
+            description=event.description,
+            tracking_number=event.tracking_number,
+            carrier=event.carrier,
+            location_city=event.location_city,
+            location_state=event.location_state,
+            location_zip=event.location_zip,
+            event_date=event.event_date,
+            event_timestamp=event.event_timestamp,
+            metadata_key=event.metadata_key,
+            metadata_value=event.metadata_value,
+            source=event.source,
+            created_at=event.created_at,
+        ))
+
+    return ShippingEventListResponse(items=items, total=total)
+
+
+@router.post("/{order_id}/shipping-events", response_model=ShippingEventResponse, status_code=201)
+async def add_shipping_event(
+    order_id: int,
+    request: ShippingEventCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Add a shipping event to a sales order
+
+    Used for manual tracking updates or carrier webhook integrations.
+    """
+    # Verify order exists
+    order = db.query(SalesOrder).filter(SalesOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Sales order not found")
+
+    event = record_shipping_event(
+        db=db,
+        sales_order_id=order_id,
+        event_type=request.event_type.value,
+        title=request.title,
+        description=request.description,
+        tracking_number=request.tracking_number,
+        carrier=request.carrier,
+        location_city=request.location_city,
+        location_state=request.location_state,
+        location_zip=request.location_zip,
+        event_date=request.event_date,
+        event_timestamp=request.event_timestamp,
+        user_id=current_user.id,
+        metadata_key=request.metadata_key,
+        metadata_value=request.metadata_value,
+        source=request.source.value,
+    )
+    db.commit()
+    db.refresh(event)
+
+    user_name = current_user.name or current_user.email
+
+    logger.info(f"Added shipping event '{request.event_type.value}' to order {order.order_number}")
+
+    return ShippingEventResponse(
+        id=event.id,
+        sales_order_id=event.sales_order_id,
+        user_id=event.user_id,
+        user_name=user_name,
+        event_type=event.event_type,
+        title=event.title,
+        description=event.description,
+        tracking_number=event.tracking_number,
+        carrier=event.carrier,
+        location_city=event.location_city,
+        location_state=event.location_state,
+        location_zip=event.location_zip,
+        event_date=event.event_date,
+        event_timestamp=event.event_timestamp,
+        metadata_key=event.metadata_key,
+        metadata_value=event.metadata_value,
+        source=event.source,
+        created_at=event.created_at,
+    )

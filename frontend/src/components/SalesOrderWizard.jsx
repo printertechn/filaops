@@ -277,7 +277,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         setCustomers(customersList);
         return customersList;
       }
-    } catch (err) {
+    } catch {
       // Customers fetch failure is non-critical - customer selector will be empty
     }
     return [];
@@ -295,7 +295,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         const data = await res.json();
         setProducts(data.items || data || []);
       }
-    } catch (err) {
+    } catch {
       // Products fetch failure is non-critical - product selector will be empty
     }
   };
@@ -309,7 +309,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         const data = await res.json();
         setCategories(data);
       }
-    } catch (err) {
+    } catch {
       // Categories fetch failure is non-critical - category selector will be empty
     }
   };
@@ -354,7 +354,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
       }
 
       setComponents(allComponents);
-    } catch (err) {
+    } catch {
       // Components fetch failure is non-critical - component selector will be empty
     }
   };
@@ -368,7 +368,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         const data = await res.json();
         setWorkCenters(data);
       }
-    } catch (err) {
+    } catch {
       // Work centers fetch failure is non-critical - work center selector will be empty
     }
   };
@@ -385,7 +385,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         const data = await res.json();
         setRoutingTemplates(data);
       }
-    } catch (err) {
+    } catch {
       // Routing templates fetch failure is non-critical - templates list will be empty
     }
   };
@@ -402,7 +402,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         const data = await typesRes.json();
         setMaterialTypes(data.materials || []);
       }
-    } catch (err) {
+    } catch {
       // Material types fetch failure is non-critical - material type selector will be empty
     }
   };
@@ -420,7 +420,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
           tax_name: data.tax_name || "Sales Tax",
         });
       }
-    } catch (err) {
+    } catch {
       // Tax settings fetch failure is non-critical - tax will be calculated on backend
     }
   };
@@ -440,7 +440,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         const data = await res.json();
         setAllColors(data.colors || []);
       }
-    } catch (err) {
+    } catch {
       // Colors fetch failure - color selector will be empty
     }
   };
@@ -496,7 +496,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
         in_stock: true,
       });
       setShowMaterialWizard(false);
-    } catch (err) {
+    } catch {
       setError(err.message);
     } finally {
       setLoading(false);
@@ -625,7 +625,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
       // Refresh components list and close wizard
       await fetchComponents();
       setShowSubComponentWizard(false);
-    } catch (err) {
+    } catch {
       setError(err.message);
     } finally {
       setLoading(false);
@@ -882,7 +882,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
 
       // 7. Close wizard
       setShowItemWizard(false);
-    } catch (err) {
+    } catch {
       setError(err.message);
     } finally {
       setLoading(false);
@@ -975,7 +975,7 @@ export default function SalesOrderWizard({ isOpen, onClose, onSuccess }) {
       const order = await res.json();
       onSuccess?.(order);
       handleClose();
-    } catch (err) {
+    } catch {
       setError(err.message);
     } finally {
       setLoading(false);

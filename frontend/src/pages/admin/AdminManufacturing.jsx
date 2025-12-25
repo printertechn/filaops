@@ -91,10 +91,12 @@ export default function AdminManufacturing() {
       });
       if (res.ok) {
         const data = await res.json();
-        setProducts(data.products || data || []);
+        // Handle both array and {items: [...]} responses
+        setProducts(Array.isArray(data) ? data : (data.items || data.products || []));
       }
     } catch (err) {
       // Products fetch failure is non-critical - product selector will just be empty
+      setProducts([]);
     }
   };
 

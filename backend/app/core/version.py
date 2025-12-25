@@ -7,7 +7,6 @@ Uses git-based versioning for native PostgreSQL installation.
 
 import subprocess
 import requests
-import json
 import os
 import logging
 from datetime import datetime, timedelta

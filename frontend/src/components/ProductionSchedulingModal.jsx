@@ -57,7 +57,7 @@ export default function ProductionSchedulingModal({
         const data = await res.json();
         setWorkCenters(data);
       }
-    } catch (err) {
+    } catch {
       // Work centers fetch failure is non-critical - work center selector will be empty
     }
   };
@@ -78,7 +78,7 @@ export default function ProductionSchedulingModal({
         );
         setResources(available);
       }
-    } catch (err) {
+    } catch {
       // Resources fetch failure is non-critical - resource selector will be empty
     }
   };

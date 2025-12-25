@@ -5,6 +5,7 @@ import { createApiClient } from "./lib/apiClient";
 import { API_URL } from "./config/api";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ApiErrorToaster from "./components/ApiErrorToaster";
+import UpgradeModal from "./components/UpgradeModal";
 import AdminLayout from "./components/AdminLayout";
 import Setup from "./pages/Setup";
 import Onboarding from "./pages/Onboarding";
@@ -56,7 +57,7 @@ export default function App() {
         },
         onError: (err) => {
           // why: centralized logging hook (also toasts via ApiErrorToaster)
-          // eslint-disable-next-line no-console
+           
           console.warn("API error:", err.status, err.message);
         },
       }),
@@ -69,6 +70,8 @@ export default function App() {
         <ToastProvider>
           {/* Global API error toasts */}
           <ApiErrorToaster />
+          {/* Upgrade modal for tier limits */}
+          <UpgradeModal />
           <BrowserRouter>
         <Routes>
           {/* Redirect root to admin */}

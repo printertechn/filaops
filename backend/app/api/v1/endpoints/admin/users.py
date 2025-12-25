@@ -20,6 +20,7 @@ from app.db.session import get_db
 from app.models.user import User, RefreshToken
 from app.api.v1.deps import get_current_admin_user
 from app.core.security import hash_password
+from app.core.features import enforce_resource_limit, get_current_tier
 from app.logging_config import get_logger
 from app.schemas.user_admin import (
     AdminUserCreate,
@@ -187,9 +188,20 @@ async def create_admin_user(
 ):
     """
     Create a new admin or operator user.
-    
+
     Admin only. The password provided is temporary - user should change it on first login.
+
+    Note: Subject to tier limits. Community tier allows 1 user (the initial admin).
     """
+    # Check tier limits before creating
+    current_user_count = db.query(User).filter(
+        User.account_type.in_(["admin", "operator"]),
+        User.status == "active"
+    ).count()
+
+    user_tier = get_current_tier(db, current_admin)
+    enforce_resource_limit(db, "users", current_user_count, user_tier.value)
+
     # Check for existing email
     existing = db.query(User).filter(User.email == request.email).first()
     if existing:

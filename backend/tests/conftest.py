@@ -152,11 +152,9 @@ def sample_product(db_session):
         sku="TEST-PROD-001",
         name="Test Product",
         description="A test product for unit testing",
-        category="Test",
         unit="EA",
-        cost=Decimal("10.00"),
+        standard_cost=Decimal("10.00"),
         selling_price=Decimal("25.00"),
-        type="standard",
         active=True,
     )
     db_session.add(product)
@@ -174,9 +172,8 @@ def sample_material(db_session):
         sku="MAT-TEST-PLA",
         name="Test PLA Filament",
         description="Test material",
-        category="Raw Material",
         unit="KG",
-        cost=Decimal("20.00"),
+        standard_cost=Decimal("20.00"),
         is_raw_material=True,
         active=True,
     )
@@ -195,9 +192,8 @@ def sample_box(db_session):
         sku="PKG-BOX-4X4",
         name="4x4x4 Shipping Box",
         description="Small shipping box",
-        category="Packaging",
         unit="EA",
-        cost=Decimal("0.50"),
+        standard_cost=Decimal("0.50"),
         is_raw_material=True,
         active=True,
     )

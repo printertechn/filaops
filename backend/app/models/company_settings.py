@@ -57,6 +57,10 @@ class CompanySettings(Base):
     accounting_method = Column(String(20), nullable=True, default="cash")  # cash or accrual
     currency_code = Column(String(10), nullable=True, default="USD")
 
+    # Timezone
+    # IANA timezone name (e.g., "America/New_York", "America/Chicago")
+    timezone = Column(String(50), nullable=True, default="America/New_York")
+
     # Production/Business Hours Settings
     # Default business hours for non-printer operations (8am-4pm, Mon-Fri)
     business_hours_start = Column(Integer, nullable=True, default=8)  # Hour of day (0-23), default 8am

@@ -9,18 +9,15 @@ Centralized service for production order execution workflows:
 This service unifies production execution logic that was previously split
 between fulfillment and production order endpoints.
 """
-from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from app.models.production_order import ProductionOrder
-from app.models.bom import BOM, BOMLine
+from app.models.bom import BOM
 from app.models.product import Product
 from app.models.inventory import Inventory, InventoryTransaction, InventoryLocation
-from app.models.manufacturing import Resource
 from app.models.traceability import MaterialLot, ProductionLotConsumption
 from app.services.lot_policy import LotPolicyService
 from app.logging_config import get_logger
@@ -338,7 +335,7 @@ class ProductionExecutionService:
                 # Consume from on_hand (use the service function for consistency and validation)
                 from app.services.inventory_service import create_inventory_transaction
                 try:
-                    consumption_txn = create_inventory_transaction(
+                    _consumption_txn = create_inventory_transaction(
                         db=db,
                         product_id=res_txn.product_id,
                         location_id=res_txn.location_id,

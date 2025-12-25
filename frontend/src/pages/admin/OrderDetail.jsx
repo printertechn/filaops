@@ -13,6 +13,7 @@ import { API_URL } from "../../config/api";
 import { useToast } from "../../components/Toast";
 import RecordPaymentModal from "../../components/payments/RecordPaymentModal";
 import ActivityTimeline from "../../components/ActivityTimeline";
+import ShippingTimeline from "../../components/ShippingTimeline";
 
 export default function OrderDetail() {
   const { orderId } = useParams();
@@ -621,17 +622,6 @@ export default function OrderDetail() {
           >
             {refreshing ? "Refreshing..." : "↻ Refresh"}
           </button>
-          <button
-            onClick={handleCreateProductionOrder}
-            disabled={
-              (!order.product_id &&
-                !(order.lines?.length > 0 && order.lines[0].product_id)) ||
-              hasMainProductWO()
-            }
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            {hasMainProductWO() ? "WO Exists" : "Create Work Order"}
-          </button>
           {order.status !== "shipped" && order.status !== "delivered" && (
             <button
               onClick={() => navigate(`/admin/shipping?orderId=${order.id}`)}
@@ -660,14 +650,6 @@ export default function OrderDetail() {
               className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg"
             >
               Cancel Order
-            </button>
-          )}
-          {canDeleteOrder() && (
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg"
-            >
-              Delete Order
             </button>
           )}
         </div>
@@ -1333,6 +1315,19 @@ export default function OrderDetail() {
         <h2 className="text-lg font-semibold text-white mb-4">Activity</h2>
         <ActivityTimeline orderId={parseInt(orderId)} />
       </div>
+
+      {/* Shipping Timeline - Show if order has been shipped */}
+      {order?.tracking_number && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+            </svg>
+            <h2 className="text-lg font-semibold text-white">Shipping Tracking</h2>
+          </div>
+          <ShippingTimeline orderId={parseInt(orderId)} />
+        </div>
+      )}
 
       {/* Record Payment Modal */}
       {showPaymentModal && (

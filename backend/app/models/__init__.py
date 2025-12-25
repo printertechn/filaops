@@ -24,7 +24,10 @@ from app.models.uom import UnitOfMeasure
 from app.models.uom import UnitOfMeasure as UOM
 from app.models.scrap_reason import ScrapReason
 from app.models.order_event import OrderEvent
+from app.models.purchasing_event import PurchasingEvent
+from app.models.shipping_event import ShippingEvent
 from app.models.material_spool import MaterialSpool, ProductionOrderSpool
+from app.models.maintenance import MaintenanceLog
 # from app.models.license import License  # Disabled until ready for production
 
 __all__ = [
@@ -86,9 +89,13 @@ __all__ = [
     "ScrapReason",
     # Order Events (Activity Timeline)
     "OrderEvent",
+    "PurchasingEvent",
+    "ShippingEvent",
     # Material Spool Tracking
     "MaterialSpool",
     "ProductionOrderSpool",
+    # Maintenance
+    "MaintenanceLog",
     # License (disabled until ready)
     # "License",
 ]

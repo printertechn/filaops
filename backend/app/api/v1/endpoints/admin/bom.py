@@ -51,8 +51,7 @@ def get_effective_cost(product: Product) -> Decimal:
         return Decimal(str(product.average_cost))
     if product.last_cost and product.last_cost > 0:
         return Decimal(str(product.last_cost))
-    if product.cost and product.cost > 0:
-        return Decimal(str(product.cost))
+    # Removed legacy 'cost' field fallback - use standard_cost, average_cost, or last_cost
     return Decimal("0")
 
 
@@ -421,11 +420,16 @@ async def create_bom(
     bom_data: BOMCreate,
     current_admin: User = Depends(get_current_staff_user),
     db: Session = Depends(get_db),
+    force_new: bool = Query(False, description="Force creating a new BOM version even if one exists"),
 ):
     """
-    Create a new BOM for a product.
+    Create or update a BOM for a product.
 
-    Admin only. Can include initial lines.
+    Admin only. If an active BOM already exists for the product:
+    - By default, adds the provided lines to the existing BOM (upsert behavior)
+    - If force_new=True, deactivates the old BOM and creates a new version
+
+    This prevents accidental creation of duplicate BOMs.
     """
     # Verify product exists
     product = db.query(Product).filter(Product.id == bom_data.product_id).first()
@@ -434,6 +438,84 @@ async def create_bom(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Product not found"
         )
+
+    # Check for existing active BOM (use created_at as BOM model doesn't have updated_at)
+    existing_bom = db.query(BOM).filter(
+        BOM.product_id == bom_data.product_id,
+        BOM.active == True  # noqa: E712
+    ).order_by(desc(BOM.created_at)).first()
+
+    # If BOM exists and we're not forcing a new version, add lines to existing BOM
+    if existing_bom and not force_new:
+        logger.info(
+            "Adding lines to existing BOM (upsert)",
+            extra={
+                "bom_id": existing_bom.id,
+                "product_id": product.id,
+                "product_sku": product.sku,
+                "admin_id": current_admin.id,
+            }
+        )
+
+        # Add new lines to the existing BOM
+        if bom_data.lines:
+            existing_line_count = db.query(BOMLine).filter(BOMLine.bom_id == existing_bom.id).count()
+            for seq, line_data in enumerate(bom_data.lines, start=existing_line_count + 1):
+                # Verify component exists
+                component = db.query(Product).filter(Product.id == line_data.component_id).first()
+                if not component:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Component {line_data.component_id} not found"
+                    )
+
+                # Check if component already exists in BOM
+                existing_line = db.query(BOMLine).filter(
+                    BOMLine.bom_id == existing_bom.id,
+                    BOMLine.component_id == line_data.component_id
+                ).first()
+
+                if existing_line:
+                    # Update existing line quantity (add to it)
+                    existing_line.quantity = (existing_line.quantity or 0) + line_data.quantity
+                    if line_data.unit:
+                        existing_line.unit = line_data.unit
+                    if line_data.scrap_factor is not None:
+                        existing_line.scrap_factor = line_data.scrap_factor
+                    if line_data.notes:
+                        existing_line.notes = line_data.notes
+                else:
+                    # Add new line
+                    line = BOMLine(
+                        bom_id=existing_bom.id,
+                        component_id=line_data.component_id,
+                        quantity=line_data.quantity,
+                        unit=line_data.unit or component.unit or "EA",
+                        sequence=line_data.sequence or seq,
+                        consume_stage=line_data.consume_stage or "production",
+                        is_cost_only=line_data.is_cost_only or False,
+                        scrap_factor=line_data.scrap_factor,
+                        notes=line_data.notes,
+                    )
+                    db.add(line)
+
+        # Recalculate cost
+        db.flush()
+        existing_bom.total_cost = recalculate_bom_cost(existing_bom, db)
+
+        db.commit()
+        db.refresh(existing_bom)
+
+        return build_bom_response(existing_bom, db)
+
+    # Deactivate existing active BOMs if we're creating a new version
+    if force_new:
+        existing_boms = db.query(BOM).filter(
+            BOM.product_id == bom_data.product_id,
+            BOM.active == True  # noqa: E712
+        ).all()
+        for old_bom in existing_boms:
+            old_bom.active = False
 
     # Generate BOM code if not provided
     bom_code = bom_data.code

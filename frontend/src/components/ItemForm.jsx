@@ -8,7 +8,6 @@ import { useState, useEffect, useCallback } from "react";
 import { API_URL } from "../config/api";
 import {
   validateRequired,
-  validateNumber,
   validatePrice,
   validateSKU,
   validateForm,
@@ -27,6 +26,11 @@ const PROCUREMENT_TYPES = [
   { value: "make", label: "Make (Manufactured)" },
   { value: "buy", label: "Buy (Purchased)" },
   { value: "make_or_buy", label: "Make or Buy" },
+];
+
+const STOCKING_POLICIES = [
+  { value: "on_demand", label: "On-Demand (MRP-driven)" },
+  { value: "stocked", label: "Stocked (Reorder Point)" },
 ];
 
 export default function ItemForm({
@@ -48,10 +52,12 @@ export default function ItemForm({
     description: editingItem?.description || "",
     item_type: editingItem?.item_type || "finished_good",
     procurement_type: editingItem?.procurement_type || "make",
+    stocking_policy: editingItem?.stocking_policy || "on_demand",
     category_id: editingItem?.category_id || null,
     unit: editingItem?.unit || "EA",
     standard_cost: editingItem?.standard_cost || "",
     selling_price: editingItem?.selling_price || "",
+    reorder_point: editingItem?.reorder_point || "",
   });
 
   const fetchCategories = useCallback(async () => {
@@ -63,7 +69,7 @@ export default function ItemForm({
         const data = await res.json();
         setCategories(data);
       }
-    } catch (err) {
+    } catch {
       if (import.meta.env.DEV) {
         console.error("ItemForm: fetchCategories failed", {
           endpoint: `${API_URL}/api/v1/items/categories`,
@@ -83,7 +89,7 @@ export default function ItemForm({
         const data = await res.json();
         setUomClasses(data);
       }
-    } catch (err) {
+    } catch {
       if (import.meta.env.DEV) {
         console.error("ItemForm: fetchUomClasses failed", {
           endpoint: `${API_URL}/api/v1/admin/uom/classes`,
@@ -106,10 +112,12 @@ export default function ItemForm({
           description: editingItem.description || "",
           item_type: editingItem.item_type || "finished_good",
           procurement_type: editingItem.procurement_type || "make",
+          stocking_policy: editingItem.stocking_policy || "on_demand",
           category_id: editingItem.category_id || null,
           unit: editingItem.unit || "EA",
           standard_cost: editingItem.standard_cost || "",
           selling_price: editingItem.selling_price || "",
+          reorder_point: editingItem.reorder_point || "",
         });
       } else {
         // Reset form for new item
@@ -119,10 +127,12 @@ export default function ItemForm({
           description: "",
           item_type: "finished_good",
           procurement_type: "make",
+          stocking_policy: "on_demand",
           category_id: null,
           unit: "EA",
           standard_cost: "",
           selling_price: "",
+          reorder_point: "",
         });
       }
       setError(null);
@@ -180,12 +190,16 @@ export default function ItemForm({
         description: formData.description || null,
         item_type: formData.item_type,
         procurement_type: formData.procurement_type,
+        stocking_policy: formData.stocking_policy,
         unit: formData.unit,
         standard_cost: formData.standard_cost
           ? parseFloat(formData.standard_cost)
           : null,
         selling_price: formData.selling_price
           ? parseFloat(formData.selling_price)
+          : null,
+        reorder_point: formData.stocking_policy === "stocked" && formData.reorder_point
+          ? parseFloat(formData.reorder_point)
           : null,
         category_id: formData.category_id || null,
       };
@@ -424,6 +438,55 @@ export default function ItemForm({
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Stocking Policy */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Stocking Policy
+                </label>
+                <select
+                  value={formData.stocking_policy}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      stocking_policy: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                >
+                  {STOCKING_POLICIES.map((policy) => (
+                    <option key={policy.value} value={policy.value}>
+                      {policy.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {formData.stocking_policy === "stocked"
+                    ? "Item will show as low stock when below reorder point"
+                    : "Item is only ordered when MRP shows demand"}
+                </p>
+              </div>
+
+              {formData.stocking_policy === "stocked" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Reorder Point
+                  </label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={formData.reorder_point}
+                    onChange={(e) =>
+                      setFormData({ ...formData, reorder_point: e.target.value })
+                    }
+                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                    placeholder="Min quantity to keep on hand"
+                  />
+                </div>
+              )}
             </div>
 
             <div>

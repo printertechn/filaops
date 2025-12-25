@@ -59,7 +59,7 @@ export default function RecordPaymentModal({
         const data = await res.json();
         setOrders(data.items || data);
       }
-    } catch (err) {
+    } catch {
       // Non-critical: Order list fetch failure doesn't block user - they can still search
     }
   }, [token]);
@@ -75,7 +75,7 @@ export default function RecordPaymentModal({
           setSelectedOrder(order);
           setForm((prev) => ({ ...prev, sales_order_id: id }));
         }
-      } catch (err) {
+      } catch {
         // Non-critical: Pre-selected order fetch failure - user can select manually
       }
     },
@@ -94,7 +94,7 @@ export default function RecordPaymentModal({
         if (res.ok) {
           setPaymentSummary(await res.json());
         }
-      } catch (err) {
+      } catch {
         // Non-critical: Payment summary fetch failure - form still works without it
       }
     },
@@ -147,21 +147,44 @@ export default function RecordPaymentModal({
         ? `${API_URL}/api/v1/payments/refund`
         : `${API_URL}/api/v1/payments`;
 
+      // Debug: Check if token exists
+      if (!token) {
+        toast.error("Not authenticated. Please log in again.");
+        setLoading(false);
+        return;
+      }
+
+      // Parse date as local time (noon to avoid timezone date shifts)
+      let paymentDate = null;
+      if (form.payment_date) {
+        const [year, month, day] = form.payment_date.split("-").map(Number);
+        // Set to noon local time to avoid date boundary issues
+        paymentDate = new Date(year, month - 1, day, 12, 0, 0).toISOString();
+      }
+
       const body = {
         sales_order_id: parseInt(form.sales_order_id),
         amount: parseFloat(form.amount),
         payment_method: form.payment_method,
-        payment_date: form.payment_date
-          ? new Date(form.payment_date).toISOString()
-          : null,
+        payment_date: paymentDate,
         transaction_id: form.transaction_id || null,
         check_number:
           form.payment_method === "check" ? form.check_number : null,
         notes: form.notes || null,
       };
 
+      // Debug logging
+      console.log("Payment request:", {
+        endpoint,
+        body,
+        API_URL,
+        tokenPresent: !!token,
+        tokenLength: token?.length,
+      });
+
       const res = await fetch(endpoint, {
         method: "POST",
+        mode: "cors",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -173,12 +196,33 @@ export default function RecordPaymentModal({
         onSuccess();
       } else {
         const err = await res.json();
+        // Handle both FastAPI's standard format and our custom validation format
+        let errorMessage = err.detail || err.message;
+
+        // If validation errors array exists, show the first error
+        if (err.details?.errors && err.details.errors.length > 0) {
+          const firstError = err.details.errors[0];
+          errorMessage = `${firstError.field}: ${firstError.message}`;
+        }
+
         toast.error(
-          err.detail || `Failed to record ${isRefund ? "refund" : "payment"}`
+          errorMessage || `Failed to record ${isRefund ? "refund" : "payment"}`
         );
       }
-    } catch (err) {
-      toast.error(`Failed to record ${isRefund ? "refund" : "payment"}`);
+    } catch {
+      console.error("Payment recording error:", err);
+      console.error("Error name:", err.name);
+      console.error("Error message:", err.message);
+      console.error("Error stack:", err.stack);
+
+      // Provide more specific error message based on error type
+      let errorMsg = `Failed to record ${isRefund ? "refund" : "payment"}`;
+      if (err.name === "TypeError" && err.message === "Failed to fetch") {
+        errorMsg = "Network error: Could not connect to server. Check if backend is running.";
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }

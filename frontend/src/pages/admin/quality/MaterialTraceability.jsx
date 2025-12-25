@@ -26,10 +26,17 @@ export default function MaterialTraceability() {
       })
         .then((res) => res.json())
         .then((data) => {
-          setSpools(data.items || data || []);
+          // Handle error responses and ensure we always set an array
+          if (data.detail || data.error) {
+            console.error("API error:", data.detail || data.error);
+            setSpools([]);
+          } else {
+            setSpools(Array.isArray(data) ? data : (data.items || []));
+          }
         })
         .catch((err) => {
           console.error("Failed to fetch spools:", err);
+          setSpools([]);
         })
         .finally(() => {
           setLoadingSpools(false);

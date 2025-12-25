@@ -3,18 +3,18 @@ Inventory API Endpoints
 
 Handles inventory transactions, negative inventory approvals, and reporting.
 """
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, desc, and_, or_
+from sqlalchemy import func, desc, or_
 
 from app.db.session import get_db
 from app.api.v1.endpoints.auth import get_current_user
 from app.models import User, InventoryTransaction, Inventory, Product
-from app.services.inventory_service import create_inventory_transaction, get_or_create_inventory
+from app.services.inventory_service import get_or_create_inventory
 from app.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -250,7 +250,7 @@ async def adjust_inventory_quantity(
     - Positive quantity if increasing inventory (receipt/adjustment)
     - Negative quantity if decreasing inventory (issue/adjustment)
     """
-    from app.services.inventory_service import get_or_create_inventory, create_inventory_transaction
+    from app.services.inventory_service import get_or_create_inventory
     from app.services.inventory_helpers import is_material
     
     # Get product to check unit

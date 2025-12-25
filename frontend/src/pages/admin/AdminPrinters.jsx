@@ -31,7 +31,13 @@ export default function AdminPrinters() {
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [selectedPrinter, setSelectedPrinter] = useState(null);
+
+  // Maintenance state
+  const [maintenanceLogs, setMaintenanceLogs] = useState([]);
+  const [maintenanceDue, setMaintenanceDue] = useState({ printers: [], total_overdue: 0, total_due_soon: 0 });
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
 
   // Discovery state
   const [discovering, setDiscovering] = useState(false);
@@ -58,6 +64,7 @@ export default function AdminPrinters() {
     fetchPrinters();
     fetchBrandInfo();
     fetchActiveWork();
+    fetchMaintenanceDue();
 
     // Poll for active work every 30 seconds
     const interval = setInterval(fetchActiveWork, 30000);
@@ -67,8 +74,11 @@ export default function AdminPrinters() {
   useEffect(() => {
     if (activeTab === "list") {
       fetchPrinters();
+    } else if (activeTab === "maintenance") {
+      fetchMaintenanceLogs();
+      fetchMaintenanceDue();
     }
-  }, [filters.brand, filters.status]);
+  }, [activeTab, filters.brand, filters.status]);
 
   // ============================================================================
   // Data Fetching
@@ -122,6 +132,37 @@ export default function AdminPrinters() {
       }
     } catch (err) {
       // Non-critical - polling will retry
+    }
+  };
+
+  const fetchMaintenanceLogs = async () => {
+    setMaintenanceLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/maintenance/?page_size=50`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMaintenanceLogs(data.items || []);
+      }
+    } catch (err) {
+      console.error("Error fetching maintenance logs:", err);
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  };
+
+  const fetchMaintenanceDue = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/v1/maintenance/due?days_ahead=14`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMaintenanceDue(data);
+      }
+    } catch (err) {
+      // Non-critical
     }
   };
 
@@ -359,6 +400,7 @@ export default function AdminPrinters() {
         <nav className="flex gap-8">
           {[
             { id: "list", label: "All Printers", count: printers.length },
+            { id: "maintenance", label: "Maintenance", badge: maintenanceDue.total_overdue > 0 ? maintenanceDue.total_overdue : null, badgeColor: "bg-orange-500" },
             { id: "discovery", label: "Network Discovery" },
             { id: "import", label: "CSV Import" },
           ].map((tab) => (
@@ -375,6 +417,11 @@ export default function AdminPrinters() {
               {tab.count !== undefined && (
                 <span className="ml-2 px-2 py-0.5 text-xs bg-gray-700 rounded-full">
                   {tab.count}
+                </span>
+              )}
+              {tab.badge && (
+                <span className={`ml-2 px-2 py-0.5 text-xs ${tab.badgeColor} text-white rounded-full`}>
+                  {tab.badge}
                 </span>
               )}
             </button>
@@ -761,6 +808,121 @@ export default function AdminPrinters() {
         </div>
       )}
 
+      {/* Maintenance Tab */}
+      {activeTab === "maintenance" && (
+        <div className="space-y-6">
+          {/* Maintenance Due Summary */}
+          {(maintenanceDue.total_overdue > 0 || maintenanceDue.total_due_soon > 0) && (
+            <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <svg className="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 className="text-orange-400 font-medium">Maintenance Due</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-2xl font-bold text-red-400">{maintenanceDue.total_overdue}</div>
+                  <div className="text-gray-400 text-sm">Overdue</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-yellow-400">{maintenanceDue.total_due_soon}</div>
+                  <div className="text-gray-400 text-sm">Due in 14 days</div>
+                </div>
+              </div>
+              {maintenanceDue.printers.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {maintenanceDue.printers.slice(0, 5).map((p) => (
+                    <div key={p.printer_id} className="flex justify-between items-center text-sm">
+                      <span className="text-white">{p.printer_name} ({p.printer_code})</span>
+                      <span className={p.days_overdue > 0 ? "text-red-400" : "text-yellow-400"}>
+                        {p.days_overdue > 0 ? `${p.days_overdue} days overdue` : `Due in ${Math.abs(p.days_overdue)} days`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Log Maintenance Button */}
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-medium text-white">Maintenance History</h2>
+            <button
+              onClick={() => {
+                setSelectedPrinter(null);
+                setShowMaintenanceModal(true);
+              }}
+              className="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Log Maintenance
+            </button>
+          </div>
+
+          {/* Maintenance Logs Table */}
+          {maintenanceLoading ? (
+            <div className="text-center py-12 text-gray-400">Loading maintenance logs...</div>
+          ) : maintenanceLogs.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-400 mb-2">No maintenance logs yet</div>
+              <p className="text-gray-500 text-sm">Log your first maintenance activity to start tracking printer health.</p>
+            </div>
+          ) : (
+            <div className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-900/50">
+                  <tr>
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-400 uppercase">Date</th>
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-400 uppercase">Printer</th>
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-400 uppercase">Type</th>
+                    <th className="py-3 px-4 text-left text-xs font-medium text-gray-400 uppercase">Description</th>
+                    <th className="py-3 px-4 text-right text-xs font-medium text-gray-400 uppercase">Cost</th>
+                    <th className="py-3 px-4 text-right text-xs font-medium text-gray-400 uppercase">Downtime</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {maintenanceLogs.map((log) => {
+                    const printer = printers.find((p) => p.id === log.printer_id);
+                    return (
+                      <tr key={log.id} className="hover:bg-gray-700/30">
+                        <td className="py-3 px-4 text-gray-300 text-sm">
+                          {new Date(log.performed_at).toLocaleDateString()}
+                        </td>
+                        <td className="py-3 px-4 text-white font-medium">
+                          {printer?.name || `Printer #${log.printer_id}`}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-1 rounded-full text-xs capitalize ${
+                            log.maintenance_type === "repair" ? "bg-red-500/20 text-red-400" :
+                            log.maintenance_type === "routine" ? "bg-green-500/20 text-green-400" :
+                            log.maintenance_type === "calibration" ? "bg-blue-500/20 text-blue-400" :
+                            "bg-purple-500/20 text-purple-400"
+                          }`}>
+                            {log.maintenance_type}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-gray-400 text-sm max-w-xs truncate">
+                          {log.description || "-"}
+                        </td>
+                        <td className="py-3 px-4 text-right text-gray-300">
+                          {log.cost ? `$${parseFloat(log.cost).toFixed(2)}` : "-"}
+                        </td>
+                        <td className="py-3 px-4 text-right text-gray-300">
+                          {log.downtime_minutes ? `${log.downtime_minutes} min` : "-"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Add Printer Modal */}
       {showAddModal && (
         <PrinterModal
@@ -787,6 +949,24 @@ export default function AdminPrinters() {
             fetchPrinters();
           }}
           brandInfo={brandInfo}
+        />
+      )}
+
+      {/* Log Maintenance Modal */}
+      {showMaintenanceModal && (
+        <MaintenanceModal
+          printers={printers}
+          selectedPrinterId={selectedPrinter?.id}
+          onClose={() => {
+            setShowMaintenanceModal(false);
+            setSelectedPrinter(null);
+          }}
+          onSave={() => {
+            setShowMaintenanceModal(false);
+            setSelectedPrinter(null);
+            fetchMaintenanceLogs();
+            fetchMaintenanceDue();
+          }}
         />
       )}
     </div>
@@ -1235,6 +1415,243 @@ function IPProbeSection({ token, onPrinterFound }) {
       {/* Quick tip */}
       <div className="mt-4 text-xs text-gray-500">
         Tip: Check your router's DHCP client list to find printer IPs, or look in your printer's network settings.
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Maintenance Modal Component
+// ============================================================================
+
+function MaintenanceModal({ printers, selectedPrinterId, onClose, onSave }) {
+  const toast = useToast();
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    printer_id: selectedPrinterId || "",
+    maintenance_type: "routine",
+    description: "",
+    performed_by: "",
+    performed_at: new Date().toISOString().slice(0, 16),
+    next_due_at: "",
+    cost: "",
+    downtime_minutes: "",
+    parts_used: "",
+    notes: "",
+  });
+
+  const token = localStorage.getItem("adminToken");
+
+  const maintenanceTypes = [
+    { value: "routine", label: "Routine Maintenance", description: "Regular scheduled maintenance" },
+    { value: "repair", label: "Repair", description: "Fixing a broken component" },
+    { value: "calibration", label: "Calibration", description: "Bed leveling, extrusion tuning" },
+    { value: "cleaning", label: "Cleaning", description: "Nozzle, bed, or general cleaning" },
+  ];
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!form.printer_id) {
+      toast.error("Please select a printer");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const payload = {
+        maintenance_type: form.maintenance_type,
+        description: form.description || null,
+        performed_by: form.performed_by || null,
+        performed_at: form.performed_at ? new Date(form.performed_at).toISOString() : new Date().toISOString(),
+        next_due_at: form.next_due_at ? new Date(form.next_due_at).toISOString() : null,
+        cost: form.cost ? parseFloat(form.cost) : null,
+        downtime_minutes: form.downtime_minutes ? parseInt(form.downtime_minutes) : null,
+        parts_used: form.parts_used || null,
+        notes: form.notes || null,
+      };
+
+      const res = await fetch(`${API_URL}/api/v1/maintenance/printers/${form.printer_id}/maintenance`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Failed to log maintenance");
+      }
+
+      toast.success("Maintenance logged successfully");
+      onSave();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-gray-700">
+          <h2 className="text-xl font-bold text-white">Log Maintenance</h2>
+          <p className="text-gray-400 text-sm mt-1">Track maintenance activities, costs, and downtime</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Printer Selection */}
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Printer *</label>
+            <select
+              value={form.printer_id}
+              onChange={(e) => setForm({ ...form, printer_id: e.target.value })}
+              required
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+            >
+              <option value="">Select printer...</option>
+              {printers.map((p) => (
+                <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Maintenance Type */}
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Type *</label>
+            <select
+              value={form.maintenance_type}
+              onChange={(e) => setForm({ ...form, maintenance_type: e.target.value })}
+              required
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+            >
+              {maintenanceTypes.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Description</label>
+            <input
+              type="text"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="e.g., Replaced nozzle, cleaned bed"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
+
+          {/* Performed By */}
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Performed By</label>
+            <input
+              type="text"
+              value={form.performed_by}
+              onChange={(e) => setForm({ ...form, performed_by: e.target.value })}
+              placeholder="Your name"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
+
+          {/* Date/Time Row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">Performed At *</label>
+              <input
+                type="datetime-local"
+                value={form.performed_at}
+                onChange={(e) => setForm({ ...form, performed_at: e.target.value })}
+                required
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">Next Due</label>
+              <input
+                type="datetime-local"
+                value={form.next_due_at}
+                onChange={(e) => setForm({ ...form, next_due_at: e.target.value })}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+          </div>
+
+          {/* Cost and Downtime Row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">Cost ($)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.cost}
+                onChange={(e) => setForm({ ...form, cost: e.target.value })}
+                placeholder="0.00"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">Downtime (minutes)</label>
+              <input
+                type="number"
+                min="0"
+                value={form.downtime_minutes}
+                onChange={(e) => setForm({ ...form, downtime_minutes: e.target.value })}
+                placeholder="0"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+          </div>
+
+          {/* Parts Used */}
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Parts Used</label>
+            <input
+              type="text"
+              value={form.parts_used}
+              onChange={(e) => setForm({ ...form, parts_used: e.target.value })}
+              placeholder="e.g., Hardened nozzle 0.4mm, PTFE tube"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">Comma-separated list of parts used</p>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Notes</label>
+            <textarea
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              placeholder="Additional notes..."
+              rows={2}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4 border-t border-gray-700">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 text-gray-400 hover:text-white border border-gray-700 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 bg-orange-600 hover:bg-orange-500 disabled:bg-orange-600/50 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              {loading ? "Saving..." : "Log Maintenance"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

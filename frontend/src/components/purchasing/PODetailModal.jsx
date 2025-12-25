@@ -2,6 +2,7 @@
  * PODetailModal - View purchase order details with actions
  */
 import { useState } from "react";
+import POActivityTimeline from "../POActivityTimeline";
 
 const statusColors = {
   draft: "bg-gray-600 text-gray-100",
@@ -319,6 +320,16 @@ export default function PODetailModal({
               <span className="text-sm text-white">{po.notes}</span>
             </div>
           )}
+
+          {/* Activity Timeline */}
+          <div className="mb-6">
+            <h4 className="text-sm font-medium text-gray-300 mb-3">
+              Activity
+            </h4>
+            <div className="bg-gray-800/30 rounded-lg p-4 max-h-64 overflow-y-auto">
+              <POActivityTimeline poId={po.id} />
+            </div>
+          </div>
 
           {/* Actions */}
           <div className="flex justify-between items-center pt-4 border-t border-gray-800">

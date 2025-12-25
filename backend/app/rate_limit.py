@@ -1,6 +1,5 @@
 # file: backend/app/rate_limit.py
 # why: make rate limiting optional; no crash if slowapi isn't installed
-from typing import Optional
 
 class _NoopLimiter:
     def limit(self, *_args, **_kwargs):

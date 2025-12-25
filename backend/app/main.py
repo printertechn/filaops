@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 
 # NOTE: slowapi is optional now
-from app.core.limiter import limiter, apply_rate_limiting  # <- drop-in optional limiter
+from app.core.limiter import apply_rate_limiting  # <- drop-in optional limiter
 from app.api.v1 import router as api_v1_router
 from app.core.config import settings
 from app.exceptions import FilaOpsException

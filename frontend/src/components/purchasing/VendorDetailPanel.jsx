@@ -45,7 +45,7 @@ export default function VendorDetailPanel({
         const data = await res.json();
         setMetrics(data);
       }
-    } catch (err) {
+    } catch {
       // Non-critical: Metrics fetch failure - panel still displays vendor info
     } finally {
       setLoading(false);

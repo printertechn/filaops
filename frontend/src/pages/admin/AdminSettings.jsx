@@ -29,6 +29,44 @@ const AdminSettings = () => {
   const [checkingManually, setCheckingManually] = useState(false);
   const [currentVersion, setCurrentVersion] = useState(getCurrentVersionSync());
 
+  // Common timezones (grouped by region)
+  const timezoneOptions = [
+    // Americas
+    { value: "America/New_York", label: "US - Eastern Time (ET)" },
+    { value: "America/Chicago", label: "US - Central Time (CT)" },
+    { value: "America/Denver", label: "US - Mountain Time (MT)" },
+    { value: "America/Phoenix", label: "US - Arizona (no DST)" },
+    { value: "America/Los_Angeles", label: "US - Pacific Time (PT)" },
+    { value: "America/Anchorage", label: "US - Alaska Time (AKT)" },
+    { value: "Pacific/Honolulu", label: "US - Hawaii Time (HT)" },
+    { value: "America/Toronto", label: "Canada - Eastern" },
+    { value: "America/Vancouver", label: "Canada - Pacific" },
+    { value: "America/Mexico_City", label: "Mexico - Central" },
+    { value: "America/Sao_Paulo", label: "Brazil - Sao Paulo" },
+    // Europe
+    { value: "Europe/London", label: "UK - London (GMT/BST)" },
+    { value: "Europe/Paris", label: "Europe - Central (CET)" },
+    { value: "Europe/Berlin", label: "Germany - Berlin" },
+    { value: "Europe/Amsterdam", label: "Netherlands - Amsterdam" },
+    // Asia
+    { value: "Asia/Dubai", label: "UAE - Dubai (GST)" },
+    { value: "Asia/Kolkata", label: "India - IST" },
+    { value: "Asia/Singapore", label: "Singapore (SGT)" },
+    { value: "Asia/Hong_Kong", label: "Hong Kong (HKT)" },
+    { value: "Asia/Tokyo", label: "Japan - Tokyo (JST)" },
+    { value: "Asia/Shanghai", label: "China - Shanghai (CST)" },
+    { value: "Asia/Seoul", label: "South Korea - Seoul (KST)" },
+    // Australia & Pacific
+    { value: "Australia/Perth", label: "Australia - Perth (AWST)" },
+    { value: "Australia/Adelaide", label: "Australia - Adelaide (ACST)" },
+    { value: "Australia/Sydney", label: "Australia - Sydney (AEST)" },
+    { value: "Australia/Brisbane", label: "Australia - Brisbane (no DST)" },
+    { value: "Australia/Melbourne", label: "Australia - Melbourne (AEST)" },
+    { value: "Pacific/Auckland", label: "New Zealand (NZST)" },
+    // UTC
+    { value: "UTC", label: "UTC (Coordinated Universal Time)" },
+  ];
+
   // Form state
   const [form, setForm] = useState({
     company_name: "",
@@ -38,6 +76,7 @@ const AdminSettings = () => {
     company_state: "",
     company_zip: "",
     company_country: "USA",
+    timezone: "America/New_York",
     company_phone: "",
     company_email: "",
     company_website: "",
@@ -93,6 +132,7 @@ const AdminSettings = () => {
           company_state: data.company_state || "",
           company_zip: data.company_zip || "",
           company_country: data.company_country || "USA",
+          timezone: data.timezone || "America/New_York",
           company_phone: data.company_phone || "",
           company_email: data.company_email || "",
           company_website: data.company_website || "",
@@ -388,6 +428,27 @@ const AdminSettings = () => {
                 onChange={handleChange}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Timezone
+              </label>
+              <select
+                name="timezone"
+                value={form.timezone}
+                onChange={handleChange}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
+              >
+                {timezoneOptions.map((tz) => (
+                  <option key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-sm text-gray-400 mt-1">
+                Used for date/time displays in reports and charts
+              </p>
             </div>
 
             <div>

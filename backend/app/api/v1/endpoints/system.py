@@ -6,7 +6,7 @@ Includes version checking, update detection, and system health monitoring.
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from typing import Dict, Optional
 from sqlalchemy.orm import Session
 import logging
 

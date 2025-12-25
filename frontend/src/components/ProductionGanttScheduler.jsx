@@ -467,7 +467,7 @@ export default function ProductionGanttScheduler({
       const settled = await Promise.all(resourceFetches);
       const allResources = settled.flat();
       setMachines(allResources);
-    } catch (err) {
+    } catch {
       const msg = err?.message || "Failed to load machines";
       setError(msg);
       console.error("Failed to fetch machines:", err);
@@ -673,10 +673,10 @@ export default function ProductionGanttScheduler({
             next.set(orderId, full);
             return next;
           });
-        } catch (err) {
+        } catch {
           console.warn(`Failed to refresh order ${orderId} details:`, err);
         }
-      } catch (err) {
+      } catch {
         console.error(`Failed to schedule order ${orderId}:`, err);
         throw err; // Re-throw so caller can show toast
       }
@@ -711,7 +711,7 @@ export default function ProductionGanttScheduler({
             await scheduleOrder(o.id, machineId, startMs, endMs);
             cursorEnd = endMs;
             changed++;
-          } catch (err) {
+          } catch {
             console.error("Auto-push failed", o.id, err);
             cursorEnd = e; // continue
           }
@@ -758,7 +758,7 @@ export default function ProductionGanttScheduler({
             await scheduleOrder(o.id, machineId, startMs, endMs);
             cursor = endMs;
             moved++;
-          } catch (err) {
+          } catch {
             console.error("Auto-pull failed", o.id, err);
             cursor = e;
           }

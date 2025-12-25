@@ -6,21 +6,26 @@ import { API_URL } from "../../config/api";
 function DashboardTab({ token }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchDashboard();
   }, []);
 
   const fetchDashboard = async () => {
+    setError(null);
     try {
       const res = await fetch(`${API_URL}/api/v1/admin/accounting/dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         setData(await res.json());
+      } else {
+        setError(`Failed to load: ${res.status} ${res.statusText}`);
       }
     } catch (err) {
       console.error("Error fetching dashboard:", err);
+      setError(`Network error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -34,6 +39,26 @@ function DashboardTab({ token }) {
     );
   }
 
+  if (error) {
+    return (
+      <div className="bg-red-900/30 border border-red-700 rounded-xl p-4 flex items-center gap-3">
+        <svg className="w-5 h-5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div className="flex-1">
+          <p className="text-red-400 font-medium text-sm">{error}</p>
+          <p className="text-gray-500 text-xs mt-1">Check that the backend server is running.</p>
+        </div>
+        <button
+          onClick={fetchDashboard}
+          className="px-3 py-1 bg-red-600/20 text-red-400 rounded hover:bg-red-600/30 text-sm"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -41,8 +66,29 @@ function DashboardTab({ token }) {
     }).format(amount || 0);
   };
 
+  // Check if there's no shipped orders yet (common for new installations)
+  const hasNoShippedOrders = data?.revenue?.mtd_orders === 0 && data?.revenue?.ytd_orders === 0;
+  const hasOutstandingOrders = data?.payments?.outstanding_orders > 0;
+
   return (
     <div className="space-y-6">
+      {/* Helpful hint for new users */}
+      {hasNoShippedOrders && hasOutstandingOrders && (
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 flex items-start gap-3">
+          <svg className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="text-blue-400 font-medium text-sm">Revenue appears after shipping</p>
+            <p className="text-gray-400 text-xs mt-1">
+              You have {data?.payments?.outstanding_orders} orders awaiting fulfillment.
+              Revenue is recognized when orders ship (accrual accounting per GAAP).
+              Record payments via the order detail page.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Revenue & Payments Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
@@ -453,6 +499,7 @@ function SalesJournalTab({ token }) {
 function PaymentsTab({ token }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
   const [exportError, setExportError] = useState(null);
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -463,12 +510,9 @@ function PaymentsTab({ token }) {
     return new Date().toISOString().split("T")[0];
   });
 
-  useEffect(() => {
-    fetchPayments();
-  }, [startDate, endDate, fetchPayments]);
-
   const fetchPayments = async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const params = new URLSearchParams({
         start_date: new Date(startDate).toISOString(),
@@ -482,13 +526,20 @@ function PaymentsTab({ token }) {
       );
       if (res.ok) {
         setData(await res.json());
+      } else {
+        setFetchError(`Failed to load: ${res.status} ${res.statusText}`);
       }
     } catch (err) {
       console.error("Error fetching payments:", err);
+      setFetchError(`Network error: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchPayments();
+  }, [startDate, endDate]);
 
   const handleExport = async () => {
     setExportError(null); // Clear previous errors
@@ -580,6 +631,25 @@ function PaymentsTab({ token }) {
             className="ml-auto text-red-400 hover:text-red-300"
           >
             ✕
+          </button>
+        </div>
+      )}
+
+      {/* Fetch Error Message */}
+      {fetchError && (
+        <div className="bg-red-900/30 border border-red-700 rounded-xl p-4 flex items-center gap-3">
+          <svg className="w-5 h-5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="flex-1">
+            <p className="text-red-400 font-medium text-sm">{fetchError}</p>
+            <p className="text-gray-500 text-xs mt-1">Check that the backend server is running.</p>
+          </div>
+          <button
+            onClick={fetchPayments}
+            className="px-3 py-1 bg-red-600/20 text-red-400 rounded hover:bg-red-600/30 text-sm"
+          >
+            Retry
           </button>
         </div>
       )}
@@ -708,8 +778,12 @@ function PaymentsTab({ token }) {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-gray-500">
-                    No payments in this period
+                  <td colSpan={6} className="py-12 text-center">
+                    <div className="text-gray-500 mb-2">No payments recorded in this period</div>
+                    <p className="text-gray-600 text-xs max-w-md mx-auto">
+                      Payments are recorded via the "Record Payment" button on order detail pages.
+                      Go to Orders → select an order → click "Record Payment".
+                    </p>
                   </td>
                 </tr>
               )}
@@ -1008,6 +1082,23 @@ function TaxCenterTab({ token }) {
         </div>
       )}
 
+      {/* Pending Tax Hint */}
+      {data?.pending?.order_count > 0 && data?.summary?.order_count === 0 && (
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 flex items-start gap-3">
+          <svg className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="text-blue-400 font-medium text-sm">Tax is recognized when orders ship</p>
+            <p className="text-gray-400 text-xs mt-1">
+              You have {data.pending.order_count} pending order{data.pending.order_count > 1 ? "s" : ""} with{" "}
+              {formatCurrency(data.pending.tax_amount)} in tax.
+              This will appear here when those orders are shipped (accrual accounting per GAAP).
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Period Header */}
       <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
         <h3 className="text-lg font-semibold text-blue-400">{data?.period}</h3>
@@ -1052,6 +1143,17 @@ function TaxCenterTab({ token }) {
           </div>
           <div className="text-xs text-gray-500 mt-1">Amount to remit</div>
         </div>
+        {data?.pending?.order_count > 0 && (
+          <div className="bg-gray-900 border border-yellow-500/50 rounded-xl p-5">
+            <div className="text-yellow-400 text-sm mb-1">Pending Tax</div>
+            <div className="text-2xl font-bold text-yellow-400">
+              {formatCurrency(data.pending.tax_amount)}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {data.pending.order_count} unshipped order{data.pending.order_count > 1 ? "s" : ""}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tax by Rate */}

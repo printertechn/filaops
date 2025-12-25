@@ -104,7 +104,6 @@ def setup_query_logging(engine: Engine):
         # Track query performance in request context (if available)
         # This allows per-request aggregation of query stats
         try:
-            from contextvars import ContextVar
             # In production, you'd use a context variable to track the current request
             # For now, we just log individual queries
             pass

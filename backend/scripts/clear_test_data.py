@@ -168,7 +168,7 @@ def clear_test_data():
         print("\n[10/11] Deleting routings...")
         try:
             # Import here to avoid table redefinition issues
-            from app.models.routing import Routing, RoutingOperation
+            from app.models.manufacturing import Routing, RoutingOperation
             test_routings = db.query(Routing).filter(Routing.product_id.in_(test_product_ids)).all()
             test_routing_ids = [r.id for r in test_routings]
             test_routing_ops = db.query(RoutingOperation).filter(RoutingOperation.routing_id.in_(test_routing_ids)).all()

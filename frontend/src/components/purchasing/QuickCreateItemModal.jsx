@@ -16,6 +16,7 @@ export default function QuickCreateItemModal({ onClose, onCreated, initialName =
     name: initialName,
     item_type: "supply", // Default to supply for purchased items
     procurement_type: "buy",
+    stocking_policy: "on_demand", // Default to on_demand (MRP-driven)
     unit: "pcs",
     last_cost: "",
     reorder_point: "",
@@ -48,9 +49,12 @@ export default function QuickCreateItemModal({ onClose, onCreated, initialName =
           name: form.name.trim(),
           item_type: form.item_type,
           procurement_type: form.procurement_type,
+          stocking_policy: form.stocking_policy,
           unit: form.unit,
           last_cost: form.last_cost ? parseFloat(form.last_cost) : null,
-          reorder_point: form.reorder_point ? parseFloat(form.reorder_point) : null,
+          reorder_point: form.stocking_policy === "stocked" && form.reorder_point
+            ? parseFloat(form.reorder_point)
+            : null,
           notes: form.notes || null,
           active: true,
         }),
@@ -64,7 +68,7 @@ export default function QuickCreateItemModal({ onClose, onCreated, initialName =
         const error = await res.json();
         toast.error(error.detail || "Failed to create item");
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to create item");
     } finally {
       setLoading(false);
@@ -163,6 +167,22 @@ export default function QuickCreateItemModal({ onClose, onCreated, initialName =
               </div>
               <div>
                 <label className="block text-sm text-gray-400 mb-1">
+                  Stocking Policy
+                </label>
+                <select
+                  value={form.stocking_policy}
+                  onChange={(e) => setForm({ ...form, stocking_policy: e.target.value })}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                >
+                  <option value="on_demand">On-Demand (MRP)</option>
+                  <option value="stocked">Stocked (Reorder Point)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">
                   Last Cost
                 </label>
                 <div className="relative">
@@ -178,6 +198,22 @@ export default function QuickCreateItemModal({ onClose, onCreated, initialName =
                   />
                 </div>
               </div>
+              {form.stocking_policy === "stocked" && (
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">
+                    Reorder Point
+                  </label>
+                  <input
+                    type="number"
+                    value={form.reorder_point}
+                    onChange={(e) => setForm({ ...form, reorder_point: e.target.value })}
+                    placeholder="Min qty to keep on hand"
+                    min="0"
+                    step="1"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
+              )}
             </div>
 
             <div>

@@ -43,7 +43,7 @@ export default function MaterialForm({ isOpen, onClose, onSuccess }) {
         const data = await res.json();
         setMaterialTypes(data.materials || []);
       }
-    } catch (err) {
+    } catch {
       // Material types fetch failure is non-critical
     }
   }, [token]);
@@ -61,7 +61,7 @@ export default function MaterialForm({ isOpen, onClose, onSuccess }) {
           const data = await res.json();
           setColors(data.colors || []);
         }
-      } catch (err) {
+      } catch {
         setColors([]);
       }
     },

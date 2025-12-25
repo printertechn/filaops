@@ -14,11 +14,12 @@ These are views into the business data, formatted for accounting purposes.
 """
 from typing import Optional, Dict, Any
 from decimal import Decimal
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
+from pydantic import BaseModel, Field
 import csv
 import io
 
@@ -29,9 +30,31 @@ from app.models.production_order import ProductionOrder
 from app.models.sales_order import SalesOrder
 from app.models.payment import Payment
 from app.models.company_settings import CompanySettings
+from app.models.user import User
+from app.api.v1.deps import get_current_staff_user
 
 
 router = APIRouter(prefix="/accounting", tags=["Accounting"])
+
+
+# ============================================================================
+# Query Parameter Schemas
+# ============================================================================
+
+class SalesExportParams(BaseModel):
+    """Query parameters for sales export endpoint."""
+    start_date: date = Field(..., description="Start date for export (inclusive)")
+    end_date: date = Field(..., description="End date for export (inclusive)")
+    format: str = Field(default="csv", description="Export format (csv)")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "start_date": "2025-01-01",
+                "end_date": "2025-12-31",
+                "format": "csv"
+            }
+        }
 
 
 # Account codes matching ACCOUNTING_ARCHITECTURE.md
@@ -857,6 +880,11 @@ async def export_sales_journal_csv(
     else:
         # Generic CSV format
         writer = csv.writer(output)
+        # Disclaimer header
+        writer.writerow(["# FilaOps Sales Journal - For Reference Only"])
+        writer.writerow(["# Verify with qualified accountant before use in tax filings."])
+        writer.writerow([f"# Date Range: {start_date} to {end_date}"])
+        writer.writerow([])
         writer.writerow([
             "Date", "Order Number", "Status", "Payment Status", "Source",
             "Product", "Quantity", "Subtotal", "Tax Rate", "Tax Amount",
@@ -932,6 +960,15 @@ async def get_tax_summary(
         SalesOrder.status.in_(["shipped", "completed"])
     ).all()
 
+    # Get pending orders (not yet shipped) to show future tax liability
+    pending_orders = db.query(SalesOrder).filter(
+        SalesOrder.status.notin_(["shipped", "completed", "cancelled"]),
+        SalesOrder.tax_amount > 0
+    ).all()
+
+    pending_tax = sum(float(o.tax_amount or 0) for o in pending_orders)
+    pending_order_count = len(pending_orders)
+
     # Calculate totals
     taxable_sales = Decimal("0")
     non_taxable_sales = Decimal("0")
@@ -1003,6 +1040,10 @@ async def get_tax_summary(
             "tax_collected": float(total_tax_collected),
             "order_count": len(orders),
         },
+        "pending": {
+            "tax_amount": pending_tax,
+            "order_count": pending_order_count,
+        },
         "by_rate": [
             {
                 "rate_pct": v["rate_pct"],
@@ -1044,6 +1085,12 @@ async def export_tax_summary_csv(
 
     output = io.StringIO()
     writer = csv.writer(output)
+
+    # Disclaimer header
+    writer.writerow(["# FilaOps Tax Summary - For Reference Only"])
+    writer.writerow(["# This is NOT a tax filing. Verify with qualified accountant."])
+    writer.writerow([f"# Period: {period} ending {now.strftime('%Y-%m-%d')}"])
+    writer.writerow([])
 
     # Header
     writer.writerow([
@@ -1191,6 +1238,12 @@ async def export_payments_journal_csv(
     output = io.StringIO()
     writer = csv.writer(output)
 
+    # Disclaimer header
+    writer.writerow(["# FilaOps Payments Journal - For Reference Only"])
+    writer.writerow(["# Verify with qualified accountant before use in tax filings."])
+    writer.writerow([f"# Date Range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"])
+    writer.writerow([])
+
     writer.writerow([
         "Date", "Payment Number", "Order Number", "Type", "Method",
         "Amount", "Transaction ID", "Notes"
@@ -1210,6 +1263,114 @@ async def export_payments_journal_csv(
 
     output.seek(0)
     filename = f"payments_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.csv"
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+# ==============================================================================
+# Tax Time Export
+# ==============================================================================
+
+@router.get("/export/sales")
+async def export_sales_for_tax_time(
+    start_date: date = Query(..., description="Start date (inclusive)"),
+    end_date: date = Query(..., description="End date (inclusive)"),
+    format: str = Query("csv", description="Export format (currently only csv)"),
+    current_user: User = Depends(get_current_staff_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Export sales data for tax time / accounting purposes.
+
+    This endpoint provides a simplified CSV export of sales orders for the specified
+    date range. Designed for freemium accounting features and tax preparation.
+
+    The export includes:
+    - Order identification and dates
+    - Customer information
+    - Financial breakdown (subtotal, tax, shipping, total)
+    - Order and payment status
+
+    Date range is based on order creation date (created_at).
+    """
+    # Convert date objects to datetime for querying
+    start_datetime = datetime.combine(start_date, datetime.min.time())
+    end_datetime = datetime.combine(end_date, datetime.max.time())
+
+    # Query sales orders in the date range
+    # Use created_at for the date range (can be changed to shipped_at for accrual basis)
+    orders = db.query(SalesOrder).options(
+        joinedload(SalesOrder.user)
+    ).filter(
+        SalesOrder.created_at >= start_datetime,
+        SalesOrder.created_at <= end_datetime
+    ).order_by(SalesOrder.created_at).all()
+
+    # Generate CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Disclaimer header (important for liability)
+    writer.writerow(["# FilaOps Sales Export - For Reference Only"])
+    writer.writerow(["# This data should be verified by a qualified accountant before use in tax filings."])
+    writer.writerow(["# FilaOps is operational software, not a certified accounting system."])
+    writer.writerow([f"# Export Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"])
+    writer.writerow([f"# Date Range: {start_date} to {end_date}"])
+    writer.writerow([])  # Blank line before data
+
+    # CSV Header
+    writer.writerow([
+        "Order Number",
+        "Order Date",
+        "Customer Name",
+        "Subtotal",
+        "Tax Amount",
+        "Shipping",
+        "Total",
+        "Status",
+        "Payment Status"
+    ])
+
+    # Write data rows
+    for order in orders:
+        # Get customer name from user relationship
+        customer_name = ""
+        if order.user:
+            if order.user.company_name:
+                customer_name = order.user.company_name
+            elif order.user.first_name or order.user.last_name:
+                customer_name = f"{order.user.first_name or ''} {order.user.last_name or ''}".strip()
+            else:
+                customer_name = order.user.email
+
+        # Format date
+        order_date = order.created_at.strftime("%Y-%m-%d") if order.created_at else ""
+
+        # Financial values
+        subtotal = float(order.total_price or 0)
+        tax_amount = float(order.tax_amount or 0)
+        shipping = float(order.shipping_cost or 0)
+        total = float(order.grand_total or 0)
+
+        writer.writerow([
+            order.order_number,
+            order_date,
+            customer_name,
+            f"{subtotal:.2f}",
+            f"{tax_amount:.2f}",
+            f"{shipping:.2f}",
+            f"{total:.2f}",
+            order.status,
+            order.payment_status
+        ])
+
+    # Prepare response
+    output.seek(0)
+    filename = f"sales_export_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.csv"
 
     return StreamingResponse(
         iter([output.getvalue()]),

@@ -14,7 +14,8 @@ from sqlalchemy import and_, or_
 
 from app.db.session import get_db
 from app.models.production_order import ProductionOrder
-from app.models.manufacturing import Resource, WorkCenter
+from app.models.manufacturing import Resource
+from app.models.work_center import WorkCenter
 from app.models.print_job import PrintJob
 from app.models.product import Product
 from app.models.bom import BOM
@@ -70,7 +71,7 @@ def get_material_requirements(db: Session, production_order: ProductionOrder) ->
         # Find active BOM for product
         bom = db.query(BOM).filter(
             BOM.product_id == production_order.product_id,
-            BOM.active == True
+            BOM.active.is_(True)
         ).first()
     
     if bom and bom.lines:

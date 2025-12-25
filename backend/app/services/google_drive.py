@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Optional
 
 from app.integrations import google_drive
-from app.integrations.google_drive import GoogleDriveUnavailable
 
 
 def get_drive_service(token: str):

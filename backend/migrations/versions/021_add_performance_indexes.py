@@ -1,7 +1,7 @@
 """add performance indexes for common queries
 
 Revision ID: 021_add_performance_indexes
-Revises: 020_add_business_hours_to_company_settings
+Revises: 020
 Create Date: 2025-12-23 (Sprint 1 - Agent 1)
 
 Performance Optimization: Add database indexes for common query patterns
@@ -28,7 +28,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '021_add_performance_indexes'
-down_revision = '020_add_business_hours_to_company_settings'
+down_revision = '020'
 branch_labels = None
 depends_on = None
 

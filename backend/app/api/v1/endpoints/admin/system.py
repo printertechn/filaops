@@ -4,16 +4,13 @@ Admin System Management Endpoints
 Handles system-level operations like updates, maintenance, etc.
 """
 import subprocess
-import os
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
-from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from app.db.session import get_db
 from app.models.user import User
 from app.api.v1.deps import get_current_admin_user
 from app.logging_config import get_logger
@@ -340,8 +337,6 @@ async def start_update(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="docker-compose.yml not found. This endpoint requires a production Docker deployment."
         )
-    
-    compose_file = "docker-compose.yml"
 
     # Initialize update status
     _update_status["status"] = "checking"

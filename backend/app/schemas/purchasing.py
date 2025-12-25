@@ -222,6 +222,7 @@ class PurchaseOrderListResponse(BaseModel):
     status: str
     order_date: Optional[date] = None
     expected_date: Optional[date] = None
+    received_date: Optional[date] = None
     total_amount: Decimal
     line_count: int = 0
     created_at: datetime
@@ -288,6 +289,10 @@ class ReceivePORequest(BaseModel):
     lines: List[ReceiveLineItem]
     location_id: Optional[int] = None  # Inventory location
     notes: Optional[str] = None
+    received_date: Optional[date] = Field(
+        None,
+        description="Actual date items were received (defaults to today if not provided)"
+    )
 
 
 class ReceivePOResponse(BaseModel):

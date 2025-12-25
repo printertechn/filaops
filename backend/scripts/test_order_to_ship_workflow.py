@@ -634,7 +634,7 @@ def create_work_centers_and_routings(db: Session, finished_good: Product):
     routing = None
     try:
         # Import Routing here to avoid table redefinition error
-        from app.models.routing import Routing, RoutingOperation
+        from app.models.manufacturing import Routing, RoutingOperation
         
         # Create routing for finished good
         routing = db.query(Routing).filter(
@@ -785,7 +785,7 @@ def confirm_sales_order(db: Session, so: SalesOrder):
             # Get routing if exists (try to import, but routing is optional)
             routing_id = None
             try:
-                from app.models.routing import Routing
+                from app.models.manufacturing import Routing
                 routing = db.query(Routing).filter(
                     Routing.product_id == line.product_id,
                     Routing.active == True

@@ -372,6 +372,7 @@ async def get_requirements(
             reorder_point=r.reorder_point,
             min_order_qty=r.min_order_qty,
             has_bom=r.has_bom,
+            unit_cost=r.unit_cost,
         )
         for r in net_requirements
     ]

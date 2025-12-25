@@ -30,12 +30,12 @@ class ProductionOrder(Base):
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(50), unique=True, nullable=False, index=True)
 
-    # References
-    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
-    bom_id = Column(Integer, ForeignKey('boms.id'), nullable=True)
-    routing_id = Column(Integer, ForeignKey('routings.id'), nullable=True)
-    sales_order_id = Column(Integer, ForeignKey('sales_orders.id'), nullable=True)
-    sales_order_line_id = Column(Integer, ForeignKey('sales_order_lines.id'), nullable=True)
+    # References (all indexed for query performance)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False, index=True)
+    bom_id = Column(Integer, ForeignKey('boms.id'), nullable=True, index=True)
+    routing_id = Column(Integer, ForeignKey('routings.id'), nullable=True, index=True)
+    sales_order_id = Column(Integer, ForeignKey('sales_orders.id'), nullable=True, index=True)
+    sales_order_line_id = Column(Integer, ForeignKey('sales_order_lines.id'), nullable=True, index=True)
 
     # Parent/Child for split orders
     parent_order_id = Column(Integer, ForeignKey('production_orders.id'), nullable=True, index=True)

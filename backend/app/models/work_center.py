@@ -4,7 +4,7 @@ Work Center and Machine models for production scheduling.
 Work Centers are logical groups of resources (e.g., "3D Printer Pool", "Assembly Station").
 Machines/Resources are physical assets within work centers.
 """
-from sqlalchemy import Column, Integer, String, Numeric, DateTime, Date, ForeignKey, Text, Boolean
+from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -48,7 +48,6 @@ class WorkCenter(Base):
     
     # Status
     is_active = Column(Boolean, default=True, nullable=False)
-    active = Column(Boolean, default=True, nullable=False)  # Alias for backward compatibility
     
     # Metadata
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

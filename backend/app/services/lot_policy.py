@@ -16,7 +16,6 @@ from sqlalchemy.orm import Session
 from app.models.product import Product
 from app.models.traceability import CustomerTraceabilityProfile, MaterialLot
 from app.models.sales_order import SalesOrder
-from app.models.purchase_order import PurchaseOrder
 from app.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -121,7 +120,7 @@ class LotPolicyService:
         - reason (str) - why lot is required
         """
         from app.models.production_order import ProductionOrder
-        from app.models.bom import BOM, BOMLine
+        from app.models.bom import BOM
         
         po = db.query(ProductionOrder).filter(ProductionOrder.id == production_order_id).first()
         if not po:

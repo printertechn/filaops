@@ -26,6 +26,7 @@ from app.api.v1.endpoints import (
     system,
     spools,
     traceability,
+    maintenance,
     # license,  # Disabled until ready for production
 )
 from app.api.v1.endpoints.admin import router as admin_router
@@ -158,6 +159,13 @@ router.include_router(
     traceability.router,
     prefix="/traceability",
     tags=["quality"]
+)
+
+# Maintenance
+router.include_router(
+    maintenance.router,
+    prefix="/maintenance",
+    tags=["maintenance"]
 )
 
 # License activation (disabled until ready for production)

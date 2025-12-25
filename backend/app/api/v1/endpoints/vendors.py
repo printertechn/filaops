@@ -2,7 +2,7 @@
 Vendors API Endpoints
 """
 from fastapi import APIRouter, HTTPException, Depends
-from typing import Annotated, List, Optional
+from typing import Annotated, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc

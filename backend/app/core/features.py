@@ -8,13 +8,39 @@ Set LICENSING_ENABLED = True to enforce license checking.
 from enum import Enum
 from typing import Dict, List, Callable
 from functools import wraps
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 # ============================================================================
 # MASTER SWITCH - Set to True when ready to enforce licensing
 # ============================================================================
 LICENSING_ENABLED = False  # Everyone gets all features for now!
+
+# ============================================================================
+# TIER LIMITS - Resource limits per subscription tier
+# ============================================================================
+# -1 means unlimited
+TIER_LIMITS: Dict[str, Dict[str, int]] = {
+    "community": {
+        "users": 1,           # Single user (the admin)
+        "printers": 4,        # Up to 4 printers
+        "sites": 1,           # Single location
+        "api_rate_limit": 100,  # Requests per minute
+    },
+    "professional": {
+        "users": -1,          # Unlimited users
+        "printers": -1,       # Unlimited printers
+        "sites": 1,           # Single location (multi-site is Enterprise)
+        "min_seats": 2,       # Minimum 2 seats to purchase
+        "api_rate_limit": 1000,
+    },
+    "enterprise": {
+        "users": -1,          # Unlimited
+        "printers": -1,       # Unlimited
+        "sites": -1,          # Unlimited locations
+        "api_rate_limit": -1, # Unlimited
+    },
+}
 
 class FeatureTier(str, Enum):
     """Subscription tiers"""
@@ -283,6 +309,157 @@ def require_tier(minimum_tier: FeatureTier) -> Callable:
                 )
             
             return await func(*args, **kwargs)
-        
+
         return wrapper
     return decorator
+
+
+# ============================================================================
+# Resource Limit Checking
+# ============================================================================
+
+def get_tier_limit(tier: str, resource: str) -> int:
+    """
+    Get the limit for a resource at a given tier.
+
+    Args:
+        tier: Subscription tier (community, professional, enterprise)
+        resource: Resource name (users, printers, sites)
+
+    Returns:
+        Limit value (-1 for unlimited)
+    """
+    tier_lower = tier.lower()
+    if tier_lower not in TIER_LIMITS:
+        tier_lower = "community"
+    return TIER_LIMITS[tier_lower].get(resource, -1)
+
+
+def check_resource_limit(
+    db: Session,
+    resource: str,
+    current_count: int,
+    tier: str = "community"
+) -> dict:
+    """
+    Check if a resource limit would be exceeded.
+
+    Args:
+        db: Database session
+        resource: Resource name (users, printers, sites)
+        current_count: Current count of the resource
+        tier: User's subscription tier
+
+    Returns:
+        Dict with:
+        - allowed: bool - whether adding one more is allowed
+        - limit: int - the limit for this tier (-1 = unlimited)
+        - current: int - current count
+        - remaining: int - how many more can be added (-1 = unlimited)
+        - upgrade_message: str - message if limit reached
+    """
+    limit = get_tier_limit(tier, resource)
+
+    # -1 means unlimited
+    if limit == -1:
+        return {
+            "allowed": True,
+            "limit": -1,
+            "current": current_count,
+            "remaining": -1,
+            "upgrade_message": None,
+        }
+
+    allowed = current_count < limit
+    remaining = max(0, limit - current_count)
+
+    upgrade_message = None
+    if not allowed:
+        resource_name = resource.replace("_", " ").title()
+        upgrade_message = (
+            f"You've reached the {resource_name} limit ({limit}) for the Community tier. "
+            f"Upgrade to Pro for unlimited {resource}."
+        )
+
+    return {
+        "allowed": allowed,
+        "limit": limit,
+        "current": current_count,
+        "remaining": remaining,
+        "upgrade_message": upgrade_message,
+    }
+
+
+def enforce_resource_limit(
+    db: Session,
+    resource: str,
+    current_count: int,
+    tier: str = "community"
+) -> None:
+    """
+    Enforce a resource limit - raises HTTPException if limit exceeded.
+
+    Args:
+        db: Database session
+        resource: Resource name (users, printers, sites)
+        current_count: Current count of the resource
+        tier: User's subscription tier
+
+    Raises:
+        HTTPException: 403 if limit exceeded
+    """
+    # If licensing is disabled, don't enforce limits
+    if not LICENSING_ENABLED:
+        return
+
+    result = check_resource_limit(db, resource, current_count, tier)
+
+    if not result["allowed"]:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "TIER_LIMIT_EXCEEDED",
+                "message": result["upgrade_message"],
+                "resource": resource,
+                "limit": result["limit"],
+                "current": result["current"],
+                "tier": tier,
+            }
+        )
+
+
+def get_usage_summary(db: Session, tier: str = "community") -> dict:
+    """
+    Get a summary of resource usage vs limits.
+
+    Useful for displaying in settings/dashboard.
+
+    Args:
+        db: Database session
+        tier: User's subscription tier
+
+    Returns:
+        Dict with usage info for each limited resource
+    """
+    # Import here to avoid circular imports
+    from app.models.user import User
+    from app.models.printer import Printer
+
+    # Count current resources
+    user_count = db.query(User).filter(
+        User.account_type.in_(["admin", "operator"]),
+        User.status == "active"
+    ).count()
+
+    printer_count = db.query(Printer).filter(
+        Printer.active.is_(True)
+    ).count()
+
+    return {
+        "tier": tier,
+        "licensing_enabled": LICENSING_ENABLED,
+        "resources": {
+            "users": check_resource_limit(db, "users", user_count, tier),
+            "printers": check_resource_limit(db, "printers", printer_count, tier),
+        },
+    }

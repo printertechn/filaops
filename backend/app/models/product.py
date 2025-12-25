@@ -23,7 +23,6 @@ class Product(Base):
     legacy_sku = Column(String(50), nullable=True, index=True)  # Old SKU for Squarespace mapping
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    category = Column(String(100), nullable=True)  # Legacy - use category_id instead
     unit = Column(String(20), default='EA')
 
     # Item classification
@@ -42,23 +41,26 @@ class Product(Base):
     average_cost = Column(Numeric(10, 2), nullable=True)  # Running average
     last_cost = Column(Numeric(10, 2), nullable=True)  # Most recent purchase cost
 
-    # Pricing (legacy field retained)
-    cost = Column(Numeric(18, 4), nullable=True)  # Legacy - use standard_cost or average_cost
+    # Pricing
     selling_price = Column(Numeric(18, 4), nullable=True)
 
-    # Physical properties
-    weight = Column(Numeric(18, 4), nullable=True)  # Legacy weight field
+    # Physical properties (dimensions in imperial units)
     weight_oz = Column(Numeric(8, 2), nullable=True)  # Weight in ounces
     length_in = Column(Numeric(8, 2), nullable=True)  # Length in inches
     width_in = Column(Numeric(8, 2), nullable=True)  # Width in inches
     height_in = Column(Numeric(8, 2), nullable=True)  # Height in inches
 
-    # Purchasing
+    # Purchasing & Inventory Management
     lead_time_days = Column(Integer, nullable=True)  # Supplier lead time
     min_order_qty = Column(Numeric(10, 2), nullable=True)  # Minimum order quantity
-    reorder_point = Column(Numeric(10, 2), nullable=True)  # When to reorder
+    reorder_point = Column(Numeric(10, 2), nullable=True)  # When to reorder (for stocked items)
     safety_stock = Column(Numeric(18, 4), default=0)  # MRP safety stock buffer
-    preferred_vendor_id = Column(Integer, nullable=True)  # Future: FK to vendors table
+    preferred_vendor_id = Column(Integer, ForeignKey('vendors.id', ondelete='SET NULL'), nullable=True, index=True)
+
+    # Stocking policy: determines how inventory is managed
+    # - 'stocked': Keep minimum on hand, reorder at reorder_point (proactive)
+    # - 'on_demand': Only order when MRP shows demand (reactive)
+    stocking_policy = Column(String(20), default='on_demand', nullable=False)
 
     # Identifiers
     upc = Column(String(50), nullable=True)  # UPC/barcode
@@ -72,7 +74,7 @@ class Product(Base):
     # Visibility & Sales Channels
     is_public = Column(Boolean, default=True)  # Show on public storefront?
     sales_channel = Column(String(20), default='public')  # 'public' | 'b2b' | 'internal'
-    customer_id = Column(Integer, nullable=True)  # Restrict to specific customer (B2B)
+    customer_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)  # Restrict to specific customer (B2B)
 
     # Flags
     is_raw_material = Column(Boolean, default=False)

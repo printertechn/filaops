@@ -18,10 +18,19 @@ export default function CompleteOrderModal({
   const [availableSpoolsByMaterial, setAvailableSpoolsByMaterial] = useState({}); // { materialProductId: [spools] }
   const [loadingMaterials, setLoadingMaterials] = useState(false);
 
+  const [acknowledgeShort, setAcknowledgeShort] = useState(false);
+  const [createRemakeForShortfall, setCreateRemakeForShortfall] = useState(true); // Default to creating remake
+
   const token = localStorage.getItem("adminToken");
 
   const quantityOrdered = productionOrder.quantity_ordered || 1;
+  const quantityScrapped = productionOrder.quantity_scrapped || 0;
   const isOverrun = quantityCompleted > quantityOrdered;
+
+  // Calculate if order would be closed short (fewer units than ordered)
+  const totalAccounted = quantityCompleted + quantityScrapped;
+  const shortfall = quantityOrdered - totalAccounted;
+  const isClosingShort = shortfall > 0;
 
   // Fetch BOM materials on mount
   useEffect(() => {
@@ -76,7 +85,7 @@ export default function CompleteOrderModal({
               } else {
                 spoolsMap[material.component_id] = [];
               }
-            } catch (err) {
+            } catch {
               // Non-critical - spool selection is optional
               spoolsMap[material.component_id] = [];
             }
@@ -84,7 +93,7 @@ export default function CompleteOrderModal({
           setAvailableSpoolsByMaterial(spoolsMap);
         }
       }
-    } catch (err) {
+    } catch {
       // Non-critical - spool tracking is optional
     } finally {
       setLoadingMaterials(false);
@@ -102,6 +111,11 @@ export default function CompleteOrderModal({
       const params = new URLSearchParams({
         quantity_completed: quantityCompleted.toString(),
       });
+
+      // If closing short and user acknowledged, add force flag
+      if (isClosingShort && acknowledgeShort) {
+        params.append("force_close_short", "true");
+      }
 
       // Prepare request body with optional notes and spool selections
       const requestBody = {};
@@ -128,7 +142,53 @@ export default function CompleteOrderModal({
       );
 
       if (res.ok) {
-        if (isOverrun) {
+        let remakeOrderCode = null;
+
+        // If closing short and user wants a remake order, create it
+        if (isClosingShort && createRemakeForShortfall && shortfall > 0) {
+          try {
+            const remakeRes = await fetch(`${API_URL}/api/v1/production-orders/`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                product_id: productionOrder.product_id,
+                quantity_ordered: shortfall,
+                priority: Math.max(1, (productionOrder.priority || 3) - 1), // Bump priority
+                sales_order_id: productionOrder.sales_order_id || null,
+                sales_order_line_id: productionOrder.sales_order_line_id || null,
+                notes: `Remake for shortfall from ${productionOrder.code} (closed short by ${shortfall} units)`,
+                source: "remake",
+              }),
+            });
+            if (remakeRes.ok) {
+              const remakeData = await remakeRes.json();
+              remakeOrderCode = remakeData.code;
+            }
+          } catch (remakeErr) {
+            console.error("Failed to create remake order:", remakeErr);
+            // Don't block completion success, but warn user
+          }
+        }
+
+        // Show appropriate success message
+        if (isClosingShort && remakeOrderCode) {
+          toast.success(
+            <div>
+              <p>Order completed (short by {shortfall} units).</p>
+              <p className="mt-1 text-green-300">
+                Remake order <strong>{remakeOrderCode}</strong> created for remaining {shortfall} units.
+              </p>
+            </div>,
+            { duration: 6000 }
+          );
+        } else if (isClosingShort && createRemakeForShortfall) {
+          toast.success(`Order completed short. Failed to create remake order - please create manually.`);
+        } else if (isClosingShort) {
+          toast.success(`Order completed short by ${shortfall} units (no remake created).`);
+        } else if (isOverrun) {
           toast.success(
             `Order completed with ${
               quantityCompleted - quantityOrdered
@@ -309,33 +369,53 @@ export default function CompleteOrderModal({
           </div>
         )}
 
-        {/* Under completion warning */}
-        {quantityCompleted < quantityOrdered && quantityCompleted > 0 && (
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
-            <div className="flex gap-3">
-              <svg
-                className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
+        {/* Closing Short Warning - requires acknowledgment */}
+        {isClosingShort && quantityCompleted > 0 && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6 space-y-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={acknowledgeShort}
+                onChange={(e) => setAcknowledgeShort(e.target.checked)}
+                className="mt-1 w-5 h-5 rounded bg-gray-700 border-gray-600 text-red-500 focus:ring-red-500 focus:ring-offset-0"
+              />
               <div>
-                <p className="text-yellow-400 font-medium">
-                  Partial Completion
+                <p className="text-red-400 font-medium">
+                  Closing Order Short ({shortfall} units unaccounted)
                 </p>
-                <p className="text-yellow-400/80 text-sm">
-                  Only {quantityCompleted} of {quantityOrdered} ordered will be
-                  completed. Consider scrapping if the remainder failed.
+                <p className="text-red-400/80 text-sm">
+                  Ordered: {quantityOrdered}, Completing: {quantityCompleted}, Already Scrapped: {quantityScrapped}.
+                  <br />
+                  <strong>{shortfall} units</strong> were neither completed nor scrapped.
+                  Check this box to confirm.
                 </p>
               </div>
-            </div>
+            </label>
+
+            {/* Create Remake Order Toggle */}
+            {acknowledgeShort && (
+              <div className="border-t border-red-500/20 pt-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={createRemakeForShortfall}
+                    onChange={(e) => setCreateRemakeForShortfall(e.target.checked)}
+                    className="mt-1 w-5 h-5 rounded bg-gray-700 border-gray-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+                  />
+                  <div>
+                    <p className="text-white font-medium">
+                      Create Remake Order for {shortfall} units
+                    </p>
+                    <p className="text-gray-400 text-sm">
+                      Automatically create a new production order for the shortfall
+                      {productionOrder.sales_order_id && (
+                        <span className="text-blue-400"> (linked to same Sales Order)</span>
+                      )}
+                    </p>
+                  </div>
+                </label>
+              </div>
+            )}
           </div>
         )}
 
@@ -349,10 +429,10 @@ export default function CompleteOrderModal({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={quantityCompleted < 1 || submitting}
+            disabled={quantityCompleted < 1 || submitting || (isClosingShort && !acknowledgeShort)}
             className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? "Processing..." : "Complete Order"}
+            {submitting ? "Processing..." : isClosingShort ? "Complete Order (Short)" : "Complete Order"}
           </button>
         </div>
       </div>

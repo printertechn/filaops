@@ -428,7 +428,9 @@ async def list_items(
             reorder_point = reorder_point * 1000
         
         available = on_hand - allocated
-        item_needs_reorder = reorder_point is not None and on_hand <= reorder_point
+        # Only stocked items can "need reorder" - on_demand items are MRP-driven
+        is_stocked = item.stocking_policy == 'stocked'
+        item_needs_reorder = is_stocked and reorder_point is not None and on_hand <= reorder_point
 
         # Skip if needs_reorder filter is on and item doesn't need reorder
         if needs_reorder and not item_needs_reorder:
@@ -456,6 +458,7 @@ async def list_items(
             on_hand_qty=on_hand,
             available_qty=available,
             reorder_point=reorder_point,
+            stocking_policy=item.stocking_policy or "on_demand",
             needs_reorder=item_needs_reorder,
         ))
 
@@ -531,6 +534,7 @@ async def create_item(
         lead_time_days=request.lead_time_days,
         min_order_qty=request.min_order_qty,
         reorder_point=request.reorder_point,
+        stocking_policy=request.stocking_policy.value if request.stocking_policy else "on_demand",
         upc=request.upc,
         legacy_sku=request.legacy_sku,
         is_raw_material=request.is_raw_material or False,
@@ -694,10 +698,10 @@ async def get_low_stock_items(
     Get items that are below their reorder point OR have shortages from active orders.
 
     Returns items where:
-    - available_quantity <= reorder_point (traditional low stock), OR
-    - net_shortage > 0 from MRP explosion of active sales orders (MRP shortages)
+    - stocking_policy='stocked' AND available_quantity <= reorder_point (proactive reordering), OR
+    - net_shortage > 0 from MRP explosion of active sales orders (reactive/MRP shortages)
 
-    - **include_zero_reorder**: Include items with reorder_point = 0 or NULL (default: False)
+    - **include_zero_reorder**: Include stocked items with reorder_point = 0 or NULL (default: False)
     - **include_mrp_shortages**: Include items with shortages from active orders (default: True)
     - **limit**: Maximum number of items to return
     """
@@ -705,12 +709,14 @@ async def get_low_stock_items(
 
     items_dict = {}  # product_id -> item data
 
-    # 1. Get items below reorder point (traditional low stock)
+    # 1. Get STOCKED items below reorder point (proactive low stock)
+    # Only items with stocking_policy='stocked' are considered for reorder point alerts
     # Exclude "make" items - those need Work Orders, not Purchase Orders
     query = db.query(Product, Inventory).outerjoin(
         Inventory, Product.id == Inventory.product_id
     ).filter(
         Product.active.is_(True),  # noqa: E712
+        Product.stocking_policy == 'stocked',  # Only stocked items for reorder point alerts
         Product.reorder_point.isnot(None),
         or_(Product.procurement_type != 'make', Product.procurement_type.is_(None)),
     )
@@ -740,6 +746,7 @@ async def get_low_stock_items(
             "name": product.name,
             "item_type": product.item_type,
             "procurement_type": product.procurement_type or "buy",
+            "stocking_policy": product.stocking_policy or "on_demand",
             "unit": product.unit,
             "category_name": product.item_category.name if product.item_category else None,
             "on_hand_qty": on_hand,
@@ -871,6 +878,7 @@ async def get_low_stock_items(
                                 "name": product.name,
                                 "item_type": product.item_type,
                                 "procurement_type": product.procurement_type or "buy",
+                                "stocking_policy": product.stocking_policy or "on_demand",
                                 "unit": product.unit,
                                 "category_name": product.item_category.name if product.item_category else None,
                                 "on_hand_qty": on_hand,
@@ -970,16 +978,13 @@ async def update_item(
 
     # Check if unit is changing - need to convert inventory quantities
     old_unit = item.unit
-    unit_changing = False
     if request.unit and request.unit.upper() != (old_unit or "").upper():
-        unit_changing = True
         new_unit = request.unit.upper().strip()
         old_unit_normalized = (old_unit or "EA").upper().strip()
         
         # Convert all inventory quantities to new unit
         if old_unit_normalized != new_unit:
             from app.services.uom_service import convert_quantity_safe
-            from app.models.inventory import InventoryLocation
             
             # Get all inventory records for this product
             inventory_records = db.query(Inventory).filter(
@@ -1039,6 +1044,8 @@ async def update_item(
         if field == "procurement_type" and value:
             value = value.value if hasattr(value, "value") else value
         if field == "cost_method" and value:
+            value = value.value if hasattr(value, "value") else value
+        if field == "stocking_policy" and value:
             value = value.value if hasattr(value, "value") else value
         if field == "is_active":
             field = "active"

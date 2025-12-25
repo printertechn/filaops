@@ -12,6 +12,7 @@ import { useState } from "react";
 import { useToast } from "../Toast";
 import ProductSearchSelect from "./ProductSearchSelect";
 import QuickCreateItemModal from "./QuickCreateItemModal";
+import { convertUOM } from "../../lib/uom";
 
 export default function POCreateModal({
   po,
@@ -20,12 +21,44 @@ export default function POCreateModal({
   onClose,
   onSave,
   onProductsRefresh,
+  initialItems = [], // Pre-selected items from low stock
+  companySettings = null, // For auto-calc tax
 }) {
   const toast = useToast();
   const [showCreateItemModal, setShowCreateItemModal] = useState(false);
   const [createItemInitialName, setCreateItemInitialName] = useState("");
   const [pendingLineIndex, setPendingLineIndex] = useState(null);
   const [localProducts, setLocalProducts] = useState(products);
+  const [taxOverridden, setTaxOverridden] = useState(false); // Track if user manually changed tax
+
+  // Build initial lines from initialItems or existing PO
+  const buildInitialLines = () => {
+    if (po?.lines?.length > 0) {
+      return po.lines.map((l) => ({
+        product_id: l.product_id,
+        product_sku: l.product_sku,
+        product_name: l.product_name,
+        product_unit: l.product_unit || "",
+        quantity_ordered: l.quantity_ordered,
+        purchase_unit: l.purchase_unit || l.product_unit || "",
+        unit_cost: l.unit_cost,
+        notes: l.notes || "",
+      }));
+    }
+    if (initialItems.length > 0) {
+      return initialItems.map((item) => ({
+        product_id: item.id,
+        product_sku: item.sku,
+        product_name: item.name,
+        product_unit: item.unit || "EA",
+        quantity_ordered: item.shortfall || item.reorder_qty || 1,
+        purchase_unit: item.unit || "EA",
+        unit_cost: item.last_cost || item.cost || 0,
+        notes: "",
+      }));
+    }
+    return [];
+  };
 
   const [form, setForm] = useState({
     vendor_id: po?.vendor_id || "",
@@ -39,18 +72,26 @@ export default function POCreateModal({
     payment_reference: po?.payment_reference || "",
     document_url: po?.document_url || "",
     notes: po?.notes || "",
-    lines:
-      po?.lines?.map((l) => ({
-        product_id: l.product_id,
-        product_sku: l.product_sku,
-        product_name: l.product_name,
-        product_unit: l.product_unit || "",
-        quantity_ordered: l.quantity_ordered,
-        purchase_unit: l.purchase_unit || l.product_unit || "",
-        unit_cost: l.unit_cost,
-        notes: l.notes || "",
-      })) || [],
+    lines: buildInitialLines(),
   });
+
+  // Calculate line total for auto-tax
+  const lineTotal = form.lines.reduce(
+    (sum, l) =>
+      sum +
+      (parseFloat(l.quantity_ordered) || 0) * (parseFloat(l.unit_cost) || 0),
+    0
+  );
+
+  // Calculate suggested tax based on company settings
+  const suggestedTax = companySettings?.tax_rate_percent && !po
+    ? (lineTotal * (parseFloat(companySettings.tax_rate_percent) / 100)).toFixed(2)
+    : null;
+
+  // Get effective tax amount (use suggested if not overridden)
+  const effectiveTaxAmount = !taxOverridden && suggestedTax !== null
+    ? suggestedTax
+    : form.tax_amount;
 
   const addLine = () => {
     setForm({
@@ -84,34 +125,7 @@ export default function POCreateModal({
     setForm({ ...form, lines: newLines });
   };
 
-  // UOM conversion helper
-  const convertUOM = (qty, fromUnit, toUnit) => {
-    if (!fromUnit || !toUnit || fromUnit === toUnit) return qty;
-    
-    // Common conversions
-    const conversions = {
-      // Mass conversions (to KG)
-      'G': { 'KG': 0.001, 'LB': 0.00220462, 'OZ': 0.035274 },
-      'KG': { 'G': 1000, 'LB': 2.20462, 'OZ': 35.274 },
-      'LB': { 'G': 453.592, 'KG': 0.453592, 'OZ': 16 },
-      'OZ': { 'G': 28.3495, 'KG': 0.0283495, 'LB': 0.0625 },
-      // Count units (no conversion)
-      'EA': { 'EA': 1 },
-      'PK': { 'PK': 1 },
-      'BOX': { 'BOX': 1 },
-      'ROLL': { 'ROLL': 1 },
-    };
-    
-    const fromUpper = fromUnit.toUpperCase();
-    const toUpper = toUnit.toUpperCase();
-    
-    if (conversions[fromUpper] && conversions[fromUpper][toUpper]) {
-      return qty * conversions[fromUpper][toUpper];
-    }
-    
-    // If no conversion found, return original quantity
-    return qty;
-  };
+  // UOM conversion now uses shared lib/uom.js
 
   const handleProductSelect = (index, productId, product) => {
     const newLines = [...form.lines];
@@ -232,7 +246,7 @@ export default function POCreateModal({
       expected_date: form.expected_date || null,
       tracking_number: form.tracking_number || null,
       carrier: form.carrier || null,
-      tax_amount: parseFloat(form.tax_amount) || 0,
+      tax_amount: parseFloat(effectiveTaxAmount) || 0,
       shipping_cost: parseFloat(form.shipping_cost) || 0,
       payment_method: form.payment_method || null,
       payment_reference: form.payment_reference || null,
@@ -254,15 +268,9 @@ export default function POCreateModal({
     onSave(data);
   };
 
-  const lineTotal = form.lines.reduce(
-    (sum, l) =>
-      sum +
-      (parseFloat(l.quantity_ordered) || 0) * (parseFloat(l.unit_cost) || 0),
-    0
-  );
   const grandTotal =
     lineTotal +
-    (parseFloat(form.tax_amount) || 0) +
+    (parseFloat(effectiveTaxAmount) || 0) +
     (parseFloat(form.shipping_cost) || 0);
 
   // Get selected vendor for display
@@ -443,19 +451,9 @@ export default function POCreateModal({
                         <input
                           type="number"
                           value={line.quantity_ordered}
-                          onChange={(e) => {
-                            const newQty = parseFloat(e.target.value) || 0;
-                            const currentPurchaseUnit = line.purchase_unit || line.product_unit || 'EA';
-                            const productUnit = line.product_unit || 'EA';
-                            
-                            // Convert quantity when UOM changes
-                            let convertedQty = newQty;
-                            if (currentPurchaseUnit !== productUnit) {
-                              convertedQty = convertUOM(newQty, currentPurchaseUnit, productUnit);
-                            }
-                            
-                            updateLine(index, "quantity_ordered", e.target.value);
-                          }}
+                          onChange={(e) =>
+                            updateLine(index, "quantity_ordered", e.target.value)
+                          }
                           placeholder="Qty"
                           min="0.01"
                           step="0.01"
@@ -589,8 +587,28 @@ export default function POCreateModal({
             {/* Financials */}
             <div className="grid grid-cols-4 gap-4 border-t border-gray-800 pt-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-1">
-                  Tax Amount
+                <label className="block text-sm text-gray-400 mb-1 flex items-center justify-between">
+                  <span>Tax Amount</span>
+                  {companySettings?.tax_rate_percent && (
+                    <span className="text-xs text-gray-500">
+                      {taxOverridden ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTaxOverridden(false);
+                            const taxRate = parseFloat(companySettings.tax_rate_percent) / 100;
+                            const calculatedTax = (lineTotal * taxRate).toFixed(2);
+                            setForm((prev) => ({ ...prev, tax_amount: calculatedTax }));
+                          }}
+                          className="text-blue-400 hover:text-blue-300"
+                        >
+                          Reset to {companySettings.tax_rate_percent}%
+                        </button>
+                      ) : (
+                        `Auto: ${companySettings.tax_rate_percent}%`
+                      )}
+                    </span>
+                  )}
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -598,13 +616,16 @@ export default function POCreateModal({
                   </span>
                   <input
                     type="number"
-                    value={form.tax_amount}
-                    onChange={(e) =>
-                      setForm({ ...form, tax_amount: e.target.value })
-                    }
+                    value={effectiveTaxAmount}
+                    onChange={(e) => {
+                      setTaxOverridden(true);
+                      setForm({ ...form, tax_amount: e.target.value });
+                    }}
                     min="0"
                     step="0.01"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-7 pr-3 py-2 text-white"
+                    className={`w-full bg-gray-800 border rounded-lg pl-7 pr-3 py-2 text-white ${
+                      taxOverridden ? "border-yellow-600/50" : "border-gray-700"
+                    }`}
                   />
                 </div>
               </div>
@@ -725,11 +746,11 @@ export default function POCreateModal({
                         ${lineTotal.toFixed(2)}
                       </span>
                     </div>
-                    {parseFloat(form.tax_amount) > 0 && (
+                    {parseFloat(effectiveTaxAmount) > 0 && (
                       <div className="text-sm text-gray-400">
                         Tax:{" "}
                         <span className="text-white">
-                          ${parseFloat(form.tax_amount).toFixed(2)}
+                          ${parseFloat(effectiveTaxAmount).toFixed(2)}
                         </span>
                       </div>
                     )}

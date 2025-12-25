@@ -2346,7 +2346,7 @@ function BOMDetailView({
 }
 
 // Create BOM Form
-function CreateBOMForm({ onClose, onCreate, token }) {
+function CreateBOMForm({ onClose, onCreate, token, existingBoms = [] }) {
   const [formData, setFormData] = useState({
     product_id: "",
     name: "",
@@ -2355,6 +2355,8 @@ function CreateBOMForm({ onClose, onCreate, token }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [existingBomWarning, setExistingBomWarning] = useState(null);
+  const [forceNewVersion, setForceNewVersion] = useState(false);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -2422,11 +2424,22 @@ function CreateBOMForm({ onClose, onCreate, token }) {
       return;
     }
 
+    // If product has existing BOM and user didn't check "force new version", block
+    if (existingBomWarning && !forceNewVersion) {
+      setError("Please select 'Create a new version' or click 'View' on the existing BOM instead.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      const res = await fetch(`${API_URL}/api/v1/admin/bom`, {
+      // Add force_new parameter if creating a new version
+      const url = forceNewVersion
+        ? `${API_URL}/api/v1/admin/bom?force_new=true`
+        : `${API_URL}/api/v1/admin/bom`;
+
+      const res = await fetch(url, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -2478,7 +2491,20 @@ function CreateBOMForm({ onClose, onCreate, token }) {
         <SearchableSelect
           options={products}
           value={formData.product_id}
-          onChange={(val) => setFormData({ ...formData, product_id: val })}
+          onChange={(val) => {
+            setFormData({ ...formData, product_id: val });
+            // Check if product already has a BOM
+            const existingBom = existingBoms.find(
+              (b) => b.product_id === parseInt(val) && b.active
+            );
+            if (existingBom) {
+              setExistingBomWarning(existingBom);
+              setForceNewVersion(false);
+            } else {
+              setExistingBomWarning(null);
+              setForceNewVersion(false);
+            }
+          }}
           placeholder="Select a product..."
           displayKey="name"
           valueKey="id"
@@ -2497,6 +2523,36 @@ function CreateBOMForm({ onClose, onCreate, token }) {
           , then return here.
         </p>
       </div>
+
+      {/* Existing BOM Warning */}
+      {existingBomWarning && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 text-yellow-200">
+          <div className="font-semibold mb-2">
+            This product already has an active BOM
+          </div>
+          <p className="text-sm text-yellow-300 mb-3">
+            BOM: {existingBomWarning.code || existingBomWarning.name} (v{existingBomWarning.version})
+            with {existingBomWarning.line_count} component(s)
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="forceNewVersion"
+              checked={forceNewVersion}
+              onChange={(e) => setForceNewVersion(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-yellow-600 focus:ring-yellow-500"
+            />
+            <label htmlFor="forceNewVersion" className="text-sm">
+              Create a new version (deactivates current BOM)
+            </label>
+          </div>
+          {!forceNewVersion && (
+            <p className="text-xs text-gray-400 mt-2">
+              Tip: To add components to the existing BOM, click "View" on the BOM in the list instead.
+            </p>
+          )}
+        </div>
+      )}
 
       <div>
         <label className="block text-sm text-gray-400 mb-1">
@@ -2526,10 +2582,10 @@ function CreateBOMForm({ onClose, onCreate, token }) {
       <div className="flex gap-2 pt-4">
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || (existingBomWarning && !forceNewVersion)}
           className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
         >
-          {loading ? "Creating..." : "Create BOM"}
+          {loading ? "Creating..." : forceNewVersion ? "Create New Version" : "Create BOM"}
         </button>
         <button
           type="button"
@@ -3279,6 +3335,7 @@ export default function AdminBOM() {
             handleViewBOM(newBom.id);
           }}
           token={token}
+          existingBoms={boms}
         />
       </Modal>
     </div>

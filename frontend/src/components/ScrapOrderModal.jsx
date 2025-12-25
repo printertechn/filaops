@@ -44,7 +44,7 @@ export default function ScrapOrderModal({ productionOrder, onClose, onScrap }) {
           console.error("Failed to fetch scrap reasons:", res.status, errorText);
           toast.error(`Failed to load scrap reasons: ${res.status}`);
         }
-      } catch (err) {
+      } catch {
         console.error("Error fetching scrap reasons:", err);
         toast.error(`Network error: ${err.message}. Is the backend running on ${API_URL}?`);
       } finally {
@@ -115,7 +115,7 @@ export default function ScrapOrderModal({ productionOrder, onClose, onScrap }) {
         const err = await res.json();
         toast.error(err.detail || "Failed to scrap order");
       }
-    } catch (err) {
+    } catch {
       toast.error(err.message || "Network error");
     } finally {
       setSubmitting(false);

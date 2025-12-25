@@ -53,6 +53,10 @@ export default function ReceiveModal({ po, onClose, onReceive }) {
   );
   const [notes, setNotes] = useState("");
   const [autoGenerateLot, setAutoGenerateLot] = useState(false);
+  // Received date defaults to today - user can change if items were received earlier
+  const [receivedDate, setReceivedDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
 
   // Calculate running totals
   const totals = useMemo(() => {
@@ -246,6 +250,7 @@ export default function ReceiveModal({ po, onClose, onReceive }) {
             : null,
         })),
       notes: notes || null,
+      received_date: receivedDate,  // User-entered date (when items were actually received)
     };
 
     if (receiveData.lines.length === 0) {
@@ -333,6 +338,20 @@ export default function ReceiveModal({ po, onClose, onReceive }) {
                   <label htmlFor="autoLot" className="text-sm text-gray-400">
                     Auto-generate lot numbers
                   </label>
+                </div>
+                {/* Received Date Picker */}
+                <div className="flex items-center gap-2 border-l border-gray-700 pl-4">
+                  <label htmlFor="receivedDate" className="text-sm text-gray-400">
+                    Received:
+                  </label>
+                  <input
+                    type="date"
+                    id="receivedDate"
+                    value={receivedDate}
+                    onChange={(e) => setReceivedDate(e.target.value)}
+                    max={new Date().toISOString().slice(0, 10)}
+                    className="bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-white text-sm"
+                  />
                 </div>
               </div>
               <div className="text-sm text-gray-400">

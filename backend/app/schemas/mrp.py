@@ -173,6 +173,8 @@ class NetRequirement(BaseModel):
     min_order_qty: Optional[Decimal] = None
     # MRP Make vs Buy indicator
     has_bom: bool = False  # True = make item (Create WO), False = buy item (Create PO)
+    # Costing
+    unit_cost: Decimal = Decimal("0")  # Standard or last cost for material costing
 
 
 class RequirementsSummary(BaseModel):

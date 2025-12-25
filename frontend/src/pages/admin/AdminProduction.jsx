@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import ProductionSchedulingModal from "../../components/ProductionSchedulingModal";
 import ProductionScheduler from "../../components/ProductionScheduler";
@@ -8,6 +8,226 @@ import CompleteOrderModal from "../../components/CompleteOrderModal";
 import QCInspectionModal from "../../components/QCInspectionModal";
 import { API_URL } from "../../config/api";
 import { useToast } from "../../components/Toast";
+
+// Production Trend Chart Component
+function ProductionChart({ data, period, onPeriodChange, loading }) {
+  const [hoveredIndex, setHoveredIndex] = useState(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const chartRef = useRef(null);
+
+  const parseLocalDate = (dateStr) => {
+    if (!dateStr) return null;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
+  const formatDateKey = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const fillDateRange = (rawData, startDate, endDate) => {
+    if (!startDate || !endDate) return rawData || [];
+    const dataMap = {};
+    (rawData || []).forEach(d => { dataMap[d.date] = d; });
+    const start = parseLocalDate(startDate.split('T')[0]);
+    const end = parseLocalDate(endDate.split('T')[0]);
+    if (!start || !end) return rawData || [];
+    const filledData = [];
+    const current = new Date(start);
+    while (current <= end) {
+      const dateKey = formatDateKey(current);
+      filledData.push(dataMap[dateKey] || { date: dateKey, completed: 0, units: 0 });
+      current.setDate(current.getDate() + 1);
+    }
+    return filledData;
+  };
+
+  const periods = [
+    { key: "WTD", label: "Week" },
+    { key: "MTD", label: "Month" },
+    { key: "QTD", label: "Quarter" },
+    { key: "YTD", label: "Year" },
+  ];
+
+  const chartHeight = 100;
+
+  if (loading) {
+    return (
+      <div className="h-32 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
+      </div>
+    );
+  }
+
+  const dataPoints = fillDateRange(data?.data, data?.start_date, data?.end_date);
+
+  let cumulativeUnits = 0;
+  let cumulativeCompleted = 0;
+  const cumulativeData = dataPoints.map((d) => {
+    cumulativeUnits += d.units || 0;
+    cumulativeCompleted += d.completed || 0;
+    return { ...d, cumulativeUnits, cumulativeCompleted };
+  });
+
+  const maxCumulativeUnits = cumulativeData.length > 0 ? cumulativeData[cumulativeData.length - 1].cumulativeUnits : 1;
+  const maxDailyCompleted = Math.max(...dataPoints.map(d => d.completed || 0), 1);
+
+  const generateUnitsPath = () => {
+    if (cumulativeData.length === 0) return "";
+    const points = cumulativeData.map((d, i) => {
+      const x = (i / Math.max(cumulativeData.length - 1, 1)) * 100;
+      const y = 100 - (d.cumulativeUnits / Math.max(maxCumulativeUnits, 1)) * 100;
+      return `${x},${y}`;
+    });
+    return `M ${points.join(" L ")}`;
+  };
+
+  const handleMouseMove = (e, index) => {
+    if (chartRef.current) {
+      const rect = chartRef.current.getBoundingClientRect();
+      setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    }
+    setHoveredIndex(index);
+  };
+
+  const getHoveredData = () => {
+    if (hoveredIndex === null || !cumulativeData[hoveredIndex]) return null;
+    const d = cumulativeData[hoveredIndex];
+    const localDate = parseLocalDate(d.date);
+    return {
+      date: localDate ? localDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+      completed: d.completed || 0,
+      dailyUnits: d.units || 0,
+      cumulativeCompleted: d.cumulativeCompleted,
+      cumulativeUnits: d.cumulativeUnits,
+    };
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex gap-1">
+          {periods.map((p) => (
+            <button
+              key={p.key}
+              onClick={() => onPeriodChange(p.key)}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                period === p.key ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-4 text-right">
+          <div>
+            <p className="text-sm font-semibold text-purple-400">{data?.total_completed || 0}</p>
+            <p className="text-xs text-gray-500">orders</p>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-green-400">{data?.total_units || 0}</p>
+            <p className="text-xs text-gray-500">units</p>
+          </div>
+          {(data?.pipeline_in_progress > 0 || data?.pipeline_scheduled > 0) && (
+            <div>
+              <p className="text-sm font-semibold text-yellow-400">{(data?.pipeline_in_progress || 0) + (data?.pipeline_scheduled || 0)}</p>
+              <p className="text-xs text-gray-500">in pipeline</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-4 mb-2 text-xs">
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-3 bg-purple-500/30 rounded-sm"></div>
+          <span className="text-gray-500">Daily Completed</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-0.5 bg-green-500"></div>
+          <span className="text-gray-400">Cumulative Units</span>
+        </div>
+      </div>
+
+      {dataPoints.length > 0 ? (
+        <div ref={chartRef} className="relative" style={{ height: chartHeight }} onMouseLeave={() => setHoveredIndex(null)}>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+            <line x1="0" y1="50" x2="100" y2="50" stroke="#374151" strokeWidth="0.5" />
+            {dataPoints.map((d, i) => {
+              const barWidth = 100 / Math.max(dataPoints.length, 1) * 0.6;
+              const x = (i / Math.max(dataPoints.length - 1, 1)) * 100 - barWidth / 2;
+              const barHeight = ((d.completed || 0) / maxDailyCompleted) * 100;
+              return (
+                <rect key={`bar-${i}`} x={Math.max(0, x)} y={100 - barHeight} width={barWidth} height={barHeight} fill="url(#productionBarGradient)" opacity="0.4" />
+              );
+            })}
+            <path d={generateUnitsPath()} fill="none" stroke="#22c55e" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+            {dataPoints.map((_, i) => {
+              const sliceWidth = 100 / dataPoints.length;
+              return <rect key={`hover-${i}`} x={i * sliceWidth} y={0} width={sliceWidth} height={100} fill="transparent" onMouseMove={(e) => handleMouseMove(e, i)} style={{ cursor: 'crosshair' }} />;
+            })}
+            {hoveredIndex !== null && cumulativeData[hoveredIndex] && (
+              <circle cx={(hoveredIndex / Math.max(cumulativeData.length - 1, 1)) * 100} cy={100 - (cumulativeData[hoveredIndex].cumulativeUnits / Math.max(maxCumulativeUnits, 1)) * 100} r="3" fill="#22c55e" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            )}
+            <defs>
+              <linearGradient id="productionBarGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#a855f7" />
+                <stop offset="100%" stopColor="#a855f7" stopOpacity="0.2" />
+              </linearGradient>
+            </defs>
+          </svg>
+          {hoveredIndex !== null && getHoveredData() && (
+            <div className="absolute z-10 bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-3 pointer-events-none" style={{ left: Math.min(mousePos.x + 10, chartRef.current?.offsetWidth - 150 || 0), top: Math.max(mousePos.y - 70, 0), minWidth: '140px' }}>
+              {(() => {
+                const d = getHoveredData();
+                return (
+                  <>
+                    <div className="text-white font-medium text-sm mb-2">{d.date}</div>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between gap-4"><span className="text-purple-400">Completed:</span><span className="text-white font-medium">{d.completed}</span></div>
+                      <div className="flex justify-between gap-4"><span className="text-green-400">Units:</span><span className="text-white">{d.dailyUnits}</span></div>
+                      <div className="border-t border-gray-700 my-1 pt-1">
+                        <div className="flex justify-between gap-4"><span className="text-gray-400">Total Orders:</span><span className="text-white">{d.cumulativeCompleted}</span></div>
+                        <div className="flex justify-between gap-4"><span className="text-gray-400">Total Units:</span><span className="text-white">{d.cumulativeUnits}</span></div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="h-24 flex items-center justify-center text-gray-500 text-sm">No production completions for this period</div>
+      )}
+
+      {dataPoints.length > 0 && (
+        <div className="flex justify-between text-xs text-gray-500 mt-2">
+          <span>{dataPoints[0]?.date ? parseLocalDate(dataPoints[0].date)?.toLocaleDateString() : ""}</span>
+          <span>{dataPoints[dataPoints.length - 1]?.date ? parseLocalDate(dataPoints[dataPoints.length - 1].date)?.toLocaleDateString() : ""}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Helper to render MTO/MTS badge showing linked SO or STOCK
+const SoLinkBadge = ({ order }) => {
+  if (order.sales_order_code) {
+    return (
+      <span className="text-xs px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded">
+        {order.sales_order_code}
+      </span>
+    );
+  }
+  return (
+    <span className="text-xs px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+      STOCK
+    </span>
+  );
+};
 
 export default function AdminProduction() {
   const toast = useToast();
@@ -57,7 +277,31 @@ export default function AdminProduction() {
   // View mode: kanban or scheduler
   const [viewMode, setViewMode] = useState("kanban"); // kanban or scheduler
 
+  // Trend chart state
+  const [productionTrend, setProductionTrend] = useState(null);
+  const [trendPeriod, setTrendPeriod] = useState("MTD");
+  const [trendLoading, setTrendLoading] = useState(false);
+
   const token = localStorage.getItem("adminToken");
+
+  const fetchProductionTrend = useCallback(async (period) => {
+    if (!token) return;
+    setTrendLoading(true);
+    try {
+      const res = await fetch(
+        `${API_URL}/api/v1/admin/dashboard/production-trend?period=${period}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setProductionTrend(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch production trend:", err);
+    } finally {
+      setTrendLoading(false);
+    }
+  }, [token]);
 
   const fetchProductionOrders = useCallback(async () => {
     if (!token) return;
@@ -106,6 +350,10 @@ export default function AdminProduction() {
   useEffect(() => {
     fetchProductionOrders();
   }, [fetchProductionOrders]);
+
+  useEffect(() => {
+    fetchProductionTrend(trendPeriod);
+  }, [trendPeriod, fetchProductionTrend]);
 
   // Update filters if search param changes (e.g., from deep link)
   useEffect(() => {
@@ -213,7 +461,7 @@ export default function AdminProduction() {
     return (
       o.code?.toLowerCase().includes(search) ||
       o.product?.name?.toLowerCase().includes(search) ||
-      o.sales_order?.order_number?.toLowerCase().includes(search)
+      o.sales_order_code?.toLowerCase().includes(search)
     );
   });
 
@@ -266,6 +514,16 @@ export default function AdminProduction() {
             + Create Production Order
           </button>
         </div>
+      </div>
+
+      {/* Production Trend Chart */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <ProductionChart
+          data={productionTrend}
+          period={trendPeriod}
+          onPeriodChange={setTrendPeriod}
+          loading={trendLoading}
+        />
       </div>
 
       {/* Scheduler View */}
@@ -405,6 +663,9 @@ export default function AdminProduction() {
                           {order.quantity_ordered} units
                         </span>
                       </div>
+                      <div className="mb-2">
+                        <SoLinkBadge order={order} />
+                      </div>
                       <p className="text-sm text-gray-400 mb-3">
                         {order.product_name || "N/A"}
                       </p>
@@ -446,6 +707,9 @@ export default function AdminProduction() {
                         <span className="text-xs text-gray-500">
                           {order.quantity_ordered} units
                         </span>
+                      </div>
+                      <div className="mb-2">
+                        <SoLinkBadge order={order} />
                       </div>
                       <p className="text-sm text-gray-400 mb-2">
                         {order.product_name || "N/A"}
@@ -548,6 +812,9 @@ export default function AdminProduction() {
                           {order.quantity_completed}/{order.quantity_ordered}
                         </span>
                       </div>
+                      <div className="mb-2">
+                        <SoLinkBadge order={order} />
+                      </div>
                       <p className="text-sm text-gray-400 mb-2">
                         {order.product_name || "N/A"}
                       </p>
@@ -638,6 +905,9 @@ export default function AdminProduction() {
                             {order.quantity_completed}/{order.quantity_ordered}
                           </span>
                         </div>
+                      </div>
+                      <div className="mb-2">
+                        <SoLinkBadge order={order} />
                       </div>
                       <p className="text-sm text-gray-400">
                         {order.product_name || "N/A"}

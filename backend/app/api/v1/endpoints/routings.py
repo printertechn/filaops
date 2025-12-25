@@ -15,7 +15,8 @@ from sqlalchemy import desc
 
 from app.db.session import get_db
 from app.logging_config import get_logger
-from app.models.manufacturing import Routing, RoutingOperation, WorkCenter
+from app.models.manufacturing import Routing, RoutingOperation
+from app.models.work_center import WorkCenter
 from app.models.product import Product
 from app.api.v1.endpoints.auth import get_current_user
 from app.models.user import User

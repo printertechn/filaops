@@ -25,7 +25,7 @@ export default function RoutingEditor({
   const [showAddOperation, setShowAddOperation] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [selectedProductId, setSelectedProductId] = useState(productId || "");
-  const [productList, setProductList] = useState(products || []);
+  const [productList, _setProductList] = useState(products || []); // Updated via props
 
   const [newOperation, setNewOperation] = useState({
     work_center_id: "",
@@ -51,7 +51,7 @@ export default function RoutingEditor({
         setRouting(data);
         setOperations(data.operations || []);
       }
-    } catch (err) {
+    } catch {
       // Routing fetch failure - will show empty editor
     }
   }, [routingId, token]);
@@ -75,7 +75,7 @@ export default function RoutingEditor({
         setRouting(null);
         setOperations([]);
       }
-    } catch (err) {
+    } catch {
       // Routing fetch failure - will show empty editor
     }
   }, [selectedProductId, productId, token]);
@@ -92,7 +92,7 @@ export default function RoutingEditor({
         const data = await res.json();
         setWorkCenters(data || []);
       }
-    } catch (err) {
+    } catch {
       // Work centers fetch failure is non-critical - work center selector will be empty
     }
   }, [token]);
@@ -109,7 +109,7 @@ export default function RoutingEditor({
         const data = await res.json();
         setTemplates(data || []);
       }
-    } catch (err) {
+    } catch {
       // Templates fetch failure is non-critical - templates list will be empty
     }
   }, [token]);

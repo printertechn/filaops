@@ -4,9 +4,8 @@ Material Traceability API Endpoints
 Provides forward and backward traceability for quality management.
 Enables DHR (Device History Record) generation and recall impact analysis.
 """
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+from fastapi import APIRouter, HTTPException, Depends
+from typing import List
 from decimal import Decimal
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
@@ -16,10 +15,8 @@ from app.api.v1.endpoints.auth import get_current_user
 from app.models.user import User
 from app.models.material_spool import MaterialSpool, ProductionOrderSpool
 from app.models.production_order import ProductionOrder
-from app.models.product import Product
-from app.models.sales_order import SalesOrder, SalesOrderLine
+from app.models.sales_order import SalesOrder
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
-from app.models.vendor import Vendor
 from app.models.traceability import SerialNumber
 from app.logging_config import get_logger
 

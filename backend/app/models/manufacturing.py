@@ -10,7 +10,6 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 
 from app.db.base import Base
-from app.models.work_center import WorkCenter, Machine  # Import from dedicated module
 
 
 class Resource(Base):

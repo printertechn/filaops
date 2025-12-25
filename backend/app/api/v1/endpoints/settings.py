@@ -61,6 +61,9 @@ class CompanySettingsResponse(BaseModel):
     quote_terms: Optional[str] = None
     quote_footer: Optional[str] = None
 
+    # Timezone
+    timezone: Optional[str] = None  # IANA timezone (e.g., "America/New_York")
+
     # Business hours settings
     business_hours_start: Optional[int] = None  # Hour of day (0-23), default 8am
     business_hours_end: Optional[int] = None  # Hour of day (0-23), default 4pm
@@ -95,6 +98,9 @@ class CompanySettingsUpdate(BaseModel):
     default_quote_validity_days: Optional[int] = Field(None, ge=1, le=365)
     quote_terms: Optional[str] = Field(None, max_length=2000)
     quote_footer: Optional[str] = Field(None, max_length=1000)
+
+    # Timezone (IANA timezone name)
+    timezone: Optional[str] = Field(None, max_length=50)
 
     # Business hours settings
     business_hours_start: Optional[int] = Field(None, ge=0, le=23)  # Hour of day (0-23)
@@ -151,6 +157,7 @@ def settings_to_response(settings: CompanySettings) -> CompanySettingsResponse:
         default_quote_validity_days=settings.default_quote_validity_days,
         quote_terms=settings.quote_terms,
         quote_footer=settings.quote_footer,
+        timezone=settings.timezone,
         business_hours_start=settings.business_hours_start,
         business_hours_end=settings.business_hours_end,
         business_days_per_week=settings.business_days_per_week,

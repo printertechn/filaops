@@ -176,14 +176,19 @@ export default function AdminOrders() {
   });
 
   const getNextStatus = (currentStatus) => {
+    // SO can only be manually advanced to "confirmed"
+    // Other transitions happen automatically based on WO status:
+    // - in_production: when WO is created
+    // - ready_to_ship: when WO completes QC
+    // - shipped: when ship action is taken
+    // - completed: after shipment
     const flow = {
       pending: "confirmed",
-      confirmed: "in_production",
-      in_production: "ready_to_ship",
-      ready_to_ship: "shipped",
-      shipped: "completed",
+      // Don't allow manual advancement past confirmed - these are driven by WO/shipping
+      // confirmed: "in_production",  // REMOVED - happens when WO created
+      // in_production: "ready_to_ship",  // REMOVED - happens when WO completes
+      // ready_to_ship: "shipped",  // REMOVED - happens in shipping workflow
     };
-    // Return undefined for terminal states (completed, cancelled) or unknown statuses
     return flow[currentStatus] || null;
   };
 
@@ -497,18 +502,6 @@ export default function AdminOrders() {
                         title="Cancel order"
                       >
                         Cancel
-                      </button>
-                    )}
-                    {canDeleteOrder(order) && (
-                      <button
-                        onClick={() => {
-                          setDeletingOrder(order);
-                          setShowDeleteConfirm(true);
-                        }}
-                        className="text-red-400 hover:text-red-300 text-sm"
-                        title="Delete order"
-                      >
-                        Delete
                       </button>
                     )}
                   </td>

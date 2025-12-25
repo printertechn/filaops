@@ -6,6 +6,7 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { API_URL } from "../config/api";
+import { convertUOM } from "../lib/uom";
 
 export default function BOMEditor({
   isOpen,
@@ -23,7 +24,7 @@ export default function BOMEditor({
   const [materials, setMaterials] = useState([]);
   const [uomClasses, setUomClasses] = useState([]);
   const [showAddLine, setShowAddLine] = useState(false);
-  const [editingLine, setEditingLine] = useState(null);
+  const [_editingLine, _setEditingLine] = useState(null); // Reserved for inline editing
 
   const [newLine, setNewLine] = useState({
     component_id: "",
@@ -45,7 +46,7 @@ export default function BOMEditor({
         setBom(data);
         setLines(data.lines || []);
       }
-    } catch (err) {
+    } catch {
       // BOM fetch failure - will show empty editor
     }
   }, [bomId, token]);
@@ -67,7 +68,7 @@ export default function BOMEditor({
         setBom(null);
         setLines([]);
       }
-    } catch (err) {
+    } catch {
       // BOM fetch failure - will show empty editor
     }
   }, [productId, token]);
@@ -84,7 +85,7 @@ export default function BOMEditor({
         const data = await res.json();
         setComponents(data.items || []);
       }
-    } catch (err) {
+    } catch {
       // Components fetch failure is non-critical
     }
   }, [token]);
@@ -98,7 +99,7 @@ export default function BOMEditor({
         const data = await res.json();
         setMaterials(data.items || []);
       }
-    } catch (err) {
+    } catch {
       // Materials fetch failure is non-critical
     }
   }, [token]);
@@ -112,7 +113,7 @@ export default function BOMEditor({
         const data = await res.json();
         setUomClasses(data);
       }
-    } catch (err) {
+    } catch {
       setUomClasses([]);
     }
   }, [token]);
@@ -323,41 +324,7 @@ export default function BOMEditor({
     setLines(lines.filter((_, i) => i !== index));
   };
 
-  // UOM conversion helper (same as PO)
-  const convertUOM = (qty, fromUnit, toUnit) => {
-    if (!fromUnit || !toUnit || fromUnit === toUnit) return qty;
-    
-    // Common conversions
-    const conversions = {
-      // Mass conversions (to KG)
-      'G': { 'KG': 0.001, 'LB': 0.00220462, 'OZ': 0.035274 },
-      'KG': { 'G': 1000, 'LB': 2.20462, 'OZ': 35.274 },
-      'LB': { 'G': 453.592, 'KG': 0.453592, 'OZ': 16 },
-      'OZ': { 'G': 28.3495, 'KG': 0.0283495, 'LB': 0.0625 },
-      // Length conversions (to M)
-      'MM': { 'M': 0.001, 'CM': 0.1, 'IN': 0.0393701, 'FT': 0.00328084 },
-      'CM': { 'M': 0.01, 'MM': 10, 'IN': 0.393701, 'FT': 0.0328084 },
-      'M': { 'MM': 1000, 'CM': 100, 'IN': 39.3701, 'FT': 3.28084 },
-      'IN': { 'M': 0.0254, 'MM': 25.4, 'CM': 2.54, 'FT': 0.0833333 },
-      'FT': { 'M': 0.3048, 'MM': 304.8, 'CM': 30.48, 'IN': 12 },
-      // Count units (no conversion)
-      'EA': { 'EA': 1 },
-      'PK': { 'PK': 1 },
-      'BOX': { 'BOX': 1 },
-      'ROLL': { 'ROLL': 1 },
-      'HR': { 'HR': 1 },
-    };
-    
-    const fromUpper = fromUnit.toUpperCase();
-    const toUpper = toUnit.toUpperCase();
-    
-    if (conversions[fromUpper] && conversions[fromUpper][toUpper]) {
-      return qty * conversions[fromUpper][toUpper];
-    }
-    
-    // If no conversion found, return original quantity
-    return qty;
-  };
+  // UOM conversion now uses shared lib/uom.js
 
   const updateLine = (index, field, value) => {
     const updated = [...lines];

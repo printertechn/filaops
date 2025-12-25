@@ -12,7 +12,7 @@ export default class ErrorBoundary extends React.Component {
     this.setState({ info });
     // why: place to send to Sentry/etc
     if (this.props.onError) this.props.onError(error, info);
-    // eslint-disable-next-line no-console
+     
     console.error("ErrorBoundary", error, info);
   }
   handleRetry = () =>

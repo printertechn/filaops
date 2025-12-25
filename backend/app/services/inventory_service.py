@@ -8,7 +8,6 @@ Handles automatic inventory transactions for:
 from decimal import Decimal
 from typing import Optional, List, Tuple, Dict, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from datetime import datetime
 
 from app.models.inventory import Inventory, InventoryTransaction, InventoryLocation
@@ -34,8 +33,7 @@ def get_effective_cost(product: "Product") -> "Optional[Decimal]":
 
     Returns None if no cost is available.
     """
-    if product.cost is not None:
-        return Decimal(str(product.cost))
+    # Use standard_cost first (primary cost field), then fallback to average/last cost
     if product.standard_cost is not None:
         return Decimal(str(product.standard_cost))
     if product.average_cost is not None:
@@ -468,8 +466,9 @@ def release_production_reservations(
         List of release records
     """
     releases = []
-    location = get_or_create_default_location(db)
-    
+    # Ensure default location exists (not used directly but needed for consistency)
+    _location = get_or_create_default_location(db)
+
     # Find all reservation transactions for this PO
     reservation_txns = db.query(InventoryTransaction).filter(
         InventoryTransaction.reference_type == "production_order",

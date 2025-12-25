@@ -74,6 +74,7 @@ class Printer(Base):
     # Relationships
     print_jobs = relationship("PrintJob", back_populates="printer")
     work_center = relationship("WorkCenter", back_populates="printers")
+    maintenance_logs = relationship("MaintenanceLog", back_populates="printer", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Printer {self.code}: {self.name} [{self.brand}] ({self.status})>"

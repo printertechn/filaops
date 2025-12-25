@@ -1,31 +1,300 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { API_URL } from "../../config/api";
 import { useToast } from "../../components/Toast";
 
-// Helper to format shipping address from separate fields
-const formatShippingAddress = (order) => {
-  const parts = [];
-  if (order.shipping_address_line1) parts.push(order.shipping_address_line1);
-  if (order.shipping_address_line2) parts.push(order.shipping_address_line2);
+// Shipping Trend Chart Component
+function ShippingChart({ data, period, onPeriodChange, loading }) {
+  const [hoveredIndex, setHoveredIndex] = useState(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const chartRef = useRef(null);
 
-  const cityStateZip = [
-    order.shipping_city,
-    order.shipping_state,
-    order.shipping_zip
-  ].filter(Boolean).join(', ');
-  if (cityStateZip) parts.push(cityStateZip);
+  const parseLocalDate = (dateStr) => {
+    if (!dateStr) return null;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
 
-  if (order.shipping_country && order.shipping_country !== 'USA' && order.shipping_country !== 'US') {
-    parts.push(order.shipping_country);
+  const formatDateKey = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const fillDateRange = (rawData, startDate, endDate) => {
+    if (!startDate || !endDate) return rawData || [];
+    const dataMap = {};
+    (rawData || []).forEach(d => { dataMap[d.date] = d; });
+    const start = parseLocalDate(startDate.split('T')[0]);
+    const end = parseLocalDate(endDate.split('T')[0]);
+    if (!start || !end) return rawData || [];
+    const filledData = [];
+    const current = new Date(start);
+    while (current <= end) {
+      const dateKey = formatDateKey(current);
+      filledData.push(dataMap[dateKey] || { date: dateKey, shipped: 0, value: 0 });
+      current.setDate(current.getDate() + 1);
+    }
+    return filledData;
+  };
+
+  const periods = [
+    { key: "WTD", label: "Week" },
+    { key: "MTD", label: "Month" },
+    { key: "QTD", label: "Quarter" },
+    { key: "YTD", label: "Year" },
+  ];
+
+  const chartHeight = 100;
+
+  if (loading) {
+    return (
+      <div className="h-32 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-500"></div>
+      </div>
+    );
   }
 
-  return parts.join('\n');
+  const dataPoints = fillDateRange(data?.data, data?.start_date, data?.end_date);
+
+  // Calculate cumulative values
+  let cumulativeValue = 0;
+  let cumulativeShipped = 0;
+  const cumulativeData = dataPoints.map((d) => {
+    cumulativeValue += d.value || 0;
+    cumulativeShipped += d.shipped || 0;
+    return { ...d, cumulativeValue, cumulativeShipped };
+  });
+
+  const maxCumulativeValue = cumulativeData.length > 0 ? cumulativeData[cumulativeData.length - 1].cumulativeValue : 1;
+  const maxDailyShipped = Math.max(...dataPoints.map(d => d.shipped || 0), 1);
+
+  const generateValuePath = () => {
+    if (cumulativeData.length === 0) return "";
+    const points = cumulativeData.map((d, i) => {
+      const x = (i / Math.max(cumulativeData.length - 1, 1)) * 100;
+      const y = 100 - (d.cumulativeValue / Math.max(maxCumulativeValue, 1)) * 100;
+      return `${x},${y}`;
+    });
+    return `M ${points.join(" L ")}`;
+  };
+
+  const formatCurrency = (value) => {
+    if (value >= 1000) return `$${(value / 1000).toFixed(1)}k`;
+    return `$${value.toFixed(0)}`;
+  };
+
+  const handleMouseMove = (e, index) => {
+    if (chartRef.current) {
+      const rect = chartRef.current.getBoundingClientRect();
+      setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    }
+    setHoveredIndex(index);
+  };
+
+  const getHoveredData = () => {
+    if (hoveredIndex === null || !cumulativeData[hoveredIndex]) return null;
+    const d = cumulativeData[hoveredIndex];
+    const localDate = parseLocalDate(d.date);
+    return {
+      date: localDate ? localDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+      shipped: d.shipped || 0,
+      dailyValue: d.value || 0,
+      cumulativeShipped: d.cumulativeShipped,
+      cumulativeValue: d.cumulativeValue,
+    };
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex gap-1">
+          {periods.map((p) => (
+            <button
+              key={p.key}
+              onClick={() => onPeriodChange(p.key)}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                period === p.key
+                  ? "bg-cyan-600 text-white"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-4 text-right">
+          <div>
+            <p className="text-sm font-semibold text-cyan-400">{data?.total_shipped || 0}</p>
+            <p className="text-xs text-gray-500">shipped</p>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-green-400">{formatCurrency(data?.total_value || 0)}</p>
+            <p className="text-xs text-gray-500">value</p>
+          </div>
+          {(data?.pipeline_ready > 0 || data?.pipeline_packaging > 0) && (
+            <div>
+              <p className="text-sm font-semibold text-yellow-400">{(data?.pipeline_ready || 0) + (data?.pipeline_packaging || 0)}</p>
+              <p className="text-xs text-gray-500">in pipeline</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-4 mb-2 text-xs">
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-3 bg-cyan-500/30 rounded-sm"></div>
+          <span className="text-gray-500">Daily Shipped</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-0.5 bg-green-500"></div>
+          <span className="text-gray-400">Cumulative Value</span>
+        </div>
+      </div>
+
+      {dataPoints.length > 0 ? (
+        <div ref={chartRef} className="relative" style={{ height: chartHeight }} onMouseLeave={() => setHoveredIndex(null)}>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+            <line x1="0" y1="50" x2="100" y2="50" stroke="#374151" strokeWidth="0.5" />
+
+            {dataPoints.map((d, i) => {
+              const barWidth = 100 / Math.max(dataPoints.length, 1) * 0.6;
+              const x = (i / Math.max(dataPoints.length - 1, 1)) * 100 - barWidth / 2;
+              const barHeight = ((d.shipped || 0) / maxDailyShipped) * 100;
+              return (
+                <rect
+                  key={`bar-${i}`}
+                  x={Math.max(0, x)}
+                  y={100 - barHeight}
+                  width={barWidth}
+                  height={barHeight}
+                  fill="url(#shippingBarGradient)"
+                  opacity="0.4"
+                />
+              );
+            })}
+
+            <path d={generateValuePath()} fill="none" stroke="#22c55e" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+
+            {dataPoints.map((_, i) => {
+              const sliceWidth = 100 / dataPoints.length;
+              return (
+                <rect key={`hover-${i}`} x={i * sliceWidth} y={0} width={sliceWidth} height={100} fill="transparent" onMouseMove={(e) => handleMouseMove(e, i)} style={{ cursor: 'crosshair' }} />
+              );
+            })}
+
+            {hoveredIndex !== null && cumulativeData[hoveredIndex] && (
+              <circle
+                cx={(hoveredIndex / Math.max(cumulativeData.length - 1, 1)) * 100}
+                cy={100 - (cumulativeData[hoveredIndex].cumulativeValue / Math.max(maxCumulativeValue, 1)) * 100}
+                r="3" fill="#22c55e" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke"
+              />
+            )}
+
+            <defs>
+              <linearGradient id="shippingBarGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#06b6d4" />
+                <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.2" />
+              </linearGradient>
+            </defs>
+          </svg>
+
+          {hoveredIndex !== null && getHoveredData() && (
+            <div
+              className="absolute z-10 bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-3 pointer-events-none"
+              style={{ left: Math.min(mousePos.x + 10, chartRef.current?.offsetWidth - 150 || 0), top: Math.max(mousePos.y - 70, 0), minWidth: '140px' }}
+            >
+              {(() => {
+                const d = getHoveredData();
+                return (
+                  <>
+                    <div className="text-white font-medium text-sm mb-2">{d.date}</div>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between gap-4">
+                        <span className="text-cyan-400">Shipped:</span>
+                        <span className="text-white font-medium">{d.shipped}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-green-400">Value:</span>
+                        <span className="text-white">${d.dailyValue.toFixed(2)}</span>
+                      </div>
+                      <div className="border-t border-gray-700 my-1 pt-1">
+                        <div className="flex justify-between gap-4">
+                          <span className="text-gray-400">Total Shipped:</span>
+                          <span className="text-white">{d.cumulativeShipped}</span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-gray-400">Total Value:</span>
+                          <span className="text-white">${d.cumulativeValue.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="h-24 flex items-center justify-center text-gray-500 text-sm">No shipments for this period</div>
+      )}
+
+      {dataPoints.length > 0 && (
+        <div className="flex justify-between text-xs text-gray-500 mt-2">
+          <span>{dataPoints[0]?.date ? parseLocalDate(dataPoints[0].date)?.toLocaleDateString() : ""}</span>
+          <span>{dataPoints[dataPoints.length - 1]?.date ? parseLocalDate(dataPoints[dataPoints.length - 1].date)?.toLocaleDateString() : ""}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Helper to format shipping address compactly
+const formatAddressShort = (order) => {
+  const city = order.shipping_city || "";
+  const state = order.shipping_state || "";
+  return city && state ? `${city}, ${state}` : city || state || "No address";
 };
 
 // Helper to check if order has a shipping address
 const hasShippingAddress = (order) => {
   return !!(order.shipping_address_line1 || order.shipping_city);
+};
+
+// Helper to format due date and get urgency status
+const getDueDateInfo = (order) => {
+  const dueDate = order.due_date || order.requested_date;
+  if (!dueDate) return { text: "No date", status: "none", sortValue: Infinity };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+
+  // Format date as MM/DD
+  const formatted = `${due.getMonth() + 1}/${due.getDate()}`;
+
+  if (diffDays < 0) {
+    return { text: `${formatted} (${Math.abs(diffDays)}d late)`, status: "overdue", sortValue: diffDays };
+  } else if (diffDays === 0) {
+    return { text: `${formatted} (Today)`, status: "today", sortValue: diffDays };
+  } else if (diffDays <= 2) {
+    return { text: `${formatted} (${diffDays}d)`, status: "soon", sortValue: diffDays };
+  }
+  return { text: formatted, status: "normal", sortValue: diffDays };
+};
+
+// Sort orders by due date (most urgent first)
+const sortByDueDate = (orders) => {
+  return [...orders].sort((a, b) => {
+    const aInfo = getDueDateInfo(a);
+    const bInfo = getDueDateInfo(b);
+    return aInfo.sortValue - bInfo.sortValue;
+  });
 };
 
 export default function AdminShipping() {
@@ -35,42 +304,77 @@ export default function AdminShipping() {
   const orderIdParam = searchParams.get("orderId");
 
   const [orders, setOrders] = useState([]);
+  const [shippedToday, setShippedToday] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [creatingLabel, setCreatingLabel] = useState(false);
   const [productionStatus, setProductionStatus] = useState({});
+  const [activeTab, setActiveTab] = useState("packaging"); // packaging, needs_label, ready_to_ship
+  const [expandedOrder, setExpandedOrder] = useState(null);
+  const [trackingForm, setTrackingForm] = useState({ carrier: "USPS", tracking_number: "" });
+  const [saving, setSaving] = useState(false);
+  const [shippingTrend, setShippingTrend] = useState(null);
+  const [shippingPeriod, setShippingPeriod] = useState("MTD");
+  const [trendLoading, setTrendLoading] = useState(false);
 
   const token = localStorage.getItem("adminToken");
 
   useEffect(() => {
-    fetchReadyOrders();
+    fetchOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // If orderId param provided, select that order
+  useEffect(() => {
+    fetchShippingTrend(shippingPeriod);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shippingPeriod]);
+
+  const fetchShippingTrend = async (period) => {
+    if (!token) return;
+    setTrendLoading(true);
+    try {
+      const res = await fetch(
+        `${API_URL}/api/v1/admin/dashboard/shipping-trend?period=${period}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setShippingTrend(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch shipping trend:", err);
+    } finally {
+      setTrendLoading(false);
+    }
+  };
+
+  // If orderId param provided, expand that order
   useEffect(() => {
     if (orderIdParam && orders.length > 0) {
       const order = orders.find((o) => o.id === parseInt(orderIdParam));
       if (order) {
-        setSelectedOrder(order);
-        fetchProductionStatus(order.id);
+        setExpandedOrder(order.id);
+        // Switch to appropriate tab
+        if (order.tracking_number) {
+          setActiveTab("ready_to_ship");
+        } else if (productionStatus[order.id]?.allComplete || !productionStatus[order.id]?.hasProductionOrders) {
+          setActiveTab("needs_label");
+        } else {
+          setActiveTab("packaging");
+        }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderIdParam, orders]);
+     
+  }, [orderIdParam, orders, productionStatus]);
 
-  const fetchReadyOrders = async () => {
+  const fetchOrders = async () => {
     if (!token) return;
 
     setLoading(true);
     try {
-      // Fetch orders ready to ship (including in_progress, ready_to_ship, qc_passed)
+      // Fetch orders ready to ship
       const res = await fetch(
-        `${API_URL}/api/v1/sales-orders/?status=ready_to_ship&status=in_progress&status=qc_passed&limit=100`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        `${API_URL}/api/v1/sales-orders/?status=confirmed&status=in_production&status=ready_to_ship&status=qc_passed&limit=100`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (!res.ok) throw new Error("Failed to fetch orders");
@@ -83,10 +387,29 @@ export default function AdminShipping() {
       orderList.forEach((order) => {
         fetchProductionStatus(order.id);
       });
+
+      // Fetch shipped today for metrics
+      fetchShippedToday();
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchShippedToday = async () => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const res = await fetch(
+        `${API_URL}/api/v1/sales-orders/?status=shipped&shipped_after=${today}&limit=100`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setShippedToday(data.items || data || []);
+      }
+    } catch {
+      // Non-critical
     }
   };
 
@@ -96,25 +419,16 @@ export default function AdminShipping() {
     try {
       const res = await fetch(
         `${API_URL}/api/v1/production-orders?sales_order_id=${orderId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (res.ok) {
         const data = await res.json();
         const pos = data.items || data || [];
-        const allComplete =
-          pos.length > 0 && pos.every((po) => po.status === "complete");
+        const allComplete = pos.length > 0 && pos.every((po) => po.status === "complete" || po.status === "closed");
         const anyInProgress = pos.some((po) => po.status === "in_progress");
-        const totalOrdered = pos.reduce(
-          (sum, po) => sum + parseFloat(po.quantity_ordered || 0),
-          0
-        );
-        const totalCompleted = pos.reduce(
-          (sum, po) => sum + parseFloat(po.quantity_completed || 0),
-          0
-        );
+        const totalOrdered = pos.reduce((sum, po) => sum + parseFloat(po.quantity_ordered || 0), 0);
+        const totalCompleted = pos.reduce((sum, po) => sum + parseFloat(po.quantity_completed || 0), 0);
 
         setProductionStatus((prev) => ({
           ...prev,
@@ -124,19 +438,14 @@ export default function AdminShipping() {
             anyInProgress,
             totalOrdered,
             totalCompleted,
-            completionPercent:
-              totalOrdered > 0 ? (totalCompleted / totalOrdered) * 100 : 0,
-            productionOrders: pos,
+            completionPercent: totalOrdered > 0 ? (totalCompleted / totalOrdered) * 100 : 0,
           },
         }));
       }
-    } catch (err) {
-      // Production status fetch failure is non-critical - status will just be unavailable
+    } catch {
+      // Non-critical
     }
   };
-
-  // State for manual tracking entry
-  const [trackingForm, setTrackingForm] = useState({ carrier: "USPS", tracking_number: "" });
 
   const handleSaveTracking = async (orderId) => {
     if (!trackingForm.tracking_number.trim()) {
@@ -144,392 +453,307 @@ export default function AdminShipping() {
       return;
     }
 
-    setCreatingLabel(true);
+    setSaving(true);
     try {
-      const res = await fetch(
-        `${API_URL}/api/v1/sales-orders/${orderId}/ship`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            carrier: trackingForm.carrier,
-            tracking_number: trackingForm.tracking_number.trim(),
-          }),
-        }
-      );
+      const res = await fetch(`${API_URL}/api/v1/sales-orders/${orderId}/ship`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          carrier: trackingForm.carrier,
+          tracking_number: trackingForm.tracking_number.trim(),
+        }),
+      });
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.detail || "Failed to save tracking info");
+        throw new Error(errData.detail || "Failed to save tracking");
       }
 
-      toast.success(`Order shipped! Tracking: ${trackingForm.tracking_number}`);
+      toast.success("Tracking saved! Order marked as shipped.");
       setTrackingForm({ carrier: "USPS", tracking_number: "" });
-      fetchReadyOrders();
-      setSelectedOrder(null);
+      setExpandedOrder(null);
+      fetchOrders();
       if (orderIdParam) navigate("/admin/shipping");
     } catch (err) {
       toast.error(err.message);
     } finally {
-      setCreatingLabel(false);
+      setSaving(false);
     }
   };
 
   const handleMarkShipped = async (orderId) => {
+    setSaving(true);
     try {
-      const res = await fetch(
-        `${API_URL}/api/v1/sales-orders/${orderId}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ status: "shipped" }),
-        }
-      );
+      const res = await fetch(`${API_URL}/api/v1/sales-orders/${orderId}/status`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "shipped" }),
+      });
 
       if (res.ok) {
         toast.success("Order marked as shipped");
-        fetchReadyOrders();
-        setSelectedOrder(null);
+        fetchOrders();
+        setExpandedOrder(null);
       } else {
         const errorData = await res.json();
-        toast.error(`Failed to update order status: ${errorData.detail || "Unknown error"}`);
+        toast.error(`Failed: ${errorData.detail || "Unknown error"}`);
       }
     } catch (err) {
-      toast.error(`Failed to update order status: ${err.message || "Network error"}`);
+      toast.error(`Failed: ${err.message}`);
+    } finally {
+      setSaving(false);
     }
   };
 
+  // Categorize orders into workflow stages
+  const categorizeOrders = () => {
+    const packaging = []; // Production not complete
+    const needsLabel = []; // Production complete, no tracking
+    const readyToShip = []; // Has tracking, not shipped yet
+
+    orders.forEach((order) => {
+      const ps = productionStatus[order.id];
+      const productionComplete = !ps?.hasProductionOrders || ps?.allComplete;
+
+      if (order.tracking_number) {
+        readyToShip.push(order);
+      } else if (productionComplete) {
+        needsLabel.push(order);
+      } else {
+        packaging.push(order);
+      }
+    });
+
+    return { packaging, needsLabel, readyToShip };
+  };
+
+  const { packaging, needsLabel, readyToShip } = categorizeOrders();
+
+  const tabs = [
+    { key: "packaging", label: "Ready for Packaging", count: packaging.length, color: "blue" },
+    { key: "needs_label", label: "Needs Label", count: needsLabel.length, color: "yellow" },
+    { key: "ready_to_ship", label: "Ready to Ship", count: readyToShip.length, color: "green" },
+  ];
+
+  const getCurrentOrders = () => {
+    switch (activeTab) {
+      case "packaging": return sortByDueDate(packaging);
+      case "needs_label": return sortByDueDate(needsLabel);
+      case "ready_to_ship": return sortByDueDate(readyToShip);
+      default: return [];
+    }
+  };
+
+  const formatCurrency = (val) => `$${parseFloat(val || 0).toFixed(2)}`;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Shipping</h1>
-        <p className="text-gray-400 mt-1">
-          Manage orders ready to ship and create shipping labels
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-xl font-bold text-white">Shipping</h1>
+          <p className="text-gray-500 text-sm">Package, label, and ship orders</p>
+        </div>
+        <button
+          onClick={fetchOrders}
+          className="px-3 py-1.5 bg-gray-800 text-gray-300 rounded-lg text-sm hover:bg-gray-700"
+        >
+          Refresh
+        </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-cyan-600/20 to-cyan-600/5 border border-cyan-500/30 rounded-xl p-6">
-          <p className="text-gray-400 text-sm">Ready to Ship</p>
-          <p className="text-3xl font-bold text-white mt-1">{orders.length}</p>
+      {/* Shipping Trend Chart */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <ShippingChart
+          data={shippingTrend}
+          period={shippingPeriod}
+          onPeriodChange={setShippingPeriod}
+          loading={trendLoading}
+        />
+      </div>
+
+      {/* Metrics Row - Compact */}
+      <div className="grid grid-cols-5 gap-3">
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-3">
+          <p className="text-gray-500 text-xs">Total Pending</p>
+          <p className="text-xl font-bold text-white">{orders.length}</p>
         </div>
-        <div className="bg-gradient-to-br from-blue-600/20 to-blue-600/5 border border-blue-500/30 rounded-xl p-6">
-          <p className="text-gray-400 text-sm">With Label</p>
-          <p className="text-3xl font-bold text-white mt-1">
-            {orders.filter((o) => o.tracking_number).length}
-          </p>
+        <div className="bg-gray-900 border border-blue-800/50 rounded-lg p-3">
+          <p className="text-blue-400 text-xs">Packaging</p>
+          <p className="text-xl font-bold text-white">{packaging.length}</p>
         </div>
-        <div className="bg-gradient-to-br from-yellow-600/20 to-yellow-600/5 border border-yellow-500/30 rounded-xl p-6">
-          <p className="text-gray-400 text-sm">Needs Label</p>
-          <p className="text-3xl font-bold text-white mt-1">
-            {orders.filter((o) => !o.tracking_number).length}
-          </p>
+        <div className="bg-gray-900 border border-yellow-800/50 rounded-lg p-3">
+          <p className="text-yellow-400 text-xs">Needs Label</p>
+          <p className="text-xl font-bold text-white">{needsLabel.length}</p>
+        </div>
+        <div className="bg-gray-900 border border-green-800/50 rounded-lg p-3">
+          <p className="text-green-400 text-xs">Ready to Ship</p>
+          <p className="text-xl font-bold text-white">{readyToShip.length}</p>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-3">
+          <p className="text-gray-500 text-xs">Shipped Today</p>
+          <p className="text-xl font-bold text-white">{shippedToday.length}</p>
         </div>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400">
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm">
           {error}
         </div>
       )}
 
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-gray-800">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab.key
+                ? `border-${tab.color}-500 text-${tab.color}-400`
+                : "border-transparent text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {tab.label}
+            <span className={`ml-2 px-1.5 py-0.5 rounded text-xs ${
+              activeTab === tab.key ? `bg-${tab.color}-500/20` : "bg-gray-800"
+            }`}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center h-32">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
         </div>
       )}
 
-      {/* Orders Grid */}
+      {/* Orders Table */}
       {!loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {orders.map((order) => (
-            <div
-              key={order.id}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-700 transition-colors"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-white font-semibold">
-                    {order.order_number}
-                  </h3>
-                  <p className="text-gray-500 text-sm">{order.product_name}</p>
-                  {productionStatus[order.id] && (
-                    <div className="mt-1">
-                      {productionStatus[order.id].hasProductionOrders ? (
-                        productionStatus[order.id].allComplete ? (
-                          <span className="text-xs text-green-400">
-                            ✓ Production Complete
-                          </span>
-                        ) : (
-                          <span className="text-xs text-yellow-400">
-                            ⚠{" "}
-                            {Math.round(
-                              productionStatus[order.id].completionPercent
-                            )}
-                            % Complete
-                          </span>
-                        )
+        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-800/50">
+              <tr className="text-left text-gray-400 text-xs uppercase">
+                <th className="px-4 py-3 font-medium">Order</th>
+                <th className="px-4 py-3 font-medium">Product</th>
+                <th className="px-4 py-3 font-medium">Ship To</th>
+                <th className="px-4 py-3 font-medium">Due Date</th>
+                <th className="px-4 py-3 font-medium text-right">Qty</th>
+                <th className="px-4 py-3 font-medium text-right">Total</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-800">
+              {getCurrentOrders().map((order) => {
+                const ps = productionStatus[order.id];
+                const isExpanded = expandedOrder === order.id;
+                const dueDateInfo = getDueDateInfo(order);
+
+                // Color classes for due date urgency
+                const dueDateColorClass = {
+                  overdue: "text-red-400 font-medium",
+                  today: "text-yellow-400 font-medium",
+                  soon: "text-orange-400",
+                  normal: "text-gray-400",
+                  none: "text-gray-600",
+                }[dueDateInfo.status];
+
+                return (
+                  <tr key={order.id} className="hover:bg-gray-800/50">
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => navigate(`/admin/orders/${order.id}`)}
+                        className="text-blue-400 hover:text-blue-300 font-medium"
+                      >
+                        {order.order_number}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-white">
+                      <div className="max-w-[200px] truncate" title={order.product_name}>
+                        {order.product_name}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-400">
+                      {hasShippingAddress(order) ? (
+                        formatAddressShort(order)
                       ) : (
-                        <span className="text-xs text-gray-500">
-                          No production orders
+                        <span className="text-red-400">No address</span>
+                      )}
+                    </td>
+                    <td className={`px-4 py-3 ${dueDateColorClass}`}>
+                      {dueDateInfo.text}
+                    </td>
+                    <td className="px-4 py-3 text-right text-white">{order.quantity}</td>
+                    <td className="px-4 py-3 text-right text-green-400">
+                      {formatCurrency(order.grand_total)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {activeTab === "packaging" && ps && (
+                        <span className="text-yellow-400 text-xs">
+                          {ps.anyInProgress
+                            ? `${Math.round(ps.completionPercent)}% done`
+                            : "Not started"}
                         </span>
                       )}
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col gap-1 items-end">
-                  {order.tracking_number ? (
-                    <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs">
-                      Has Label
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded-full text-xs">
-                      Needs Label
-                    </span>
-                  )}
-                  <button
-                    onClick={() => navigate(`/admin/orders/${order.id}`)}
-                    className="text-xs text-blue-400 hover:text-blue-300 underline"
-                  >
-                    View Details
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2 text-sm mb-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Quantity:</span>
-                  <span className="text-white">{order.quantity}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Total:</span>
-                  <span className="text-green-400">
-                    ${parseFloat(order.grand_total || 0).toFixed(2)}
-                  </span>
-                </div>
-                {order.tracking_number && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Tracking:</span>
-                    <span className="text-blue-400 font-mono text-xs">
-                      {order.tracking_number}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2">
-                {!order.tracking_number ? (
-                  <button
-                    onClick={() => setSelectedOrder(order)}
-                    className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-                  >
-                    Create Label
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => handleMarkShipped(order.id)}
-                      className="flex-1 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
-                    >
-                      Mark Shipped
-                    </button>
-                    <a
-                      href={order.label_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="py-2 px-4 bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-600"
-                    >
-                      Print
-                    </a>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {orders.length === 0 && (
-            <div className="col-span-full text-center py-12 text-gray-500">
-              No orders ready to ship
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Create Label Modal */}
-      {selectedOrder && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20">
-            <div
-              className="fixed inset-0 bg-black/70"
-              onClick={() => {
-                setSelectedOrder(null);
-                if (orderIdParam) navigate("/admin/shipping");
-              }}
-            />
-            <div className="relative bg-gray-900 border border-gray-700 rounded-xl shadow-xl max-w-lg w-full mx-auto p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold text-white">
-                  Create Shipping Label
-                </h3>
-                <button
-                  onClick={() => {
-                    setSelectedOrder(null);
-                    if (orderIdParam) navigate("/admin/shipping");
-                  }}
-                  className="text-gray-400 hover:text-white p-1"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div className="bg-gray-800 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-gray-300 mb-2">
-                    Order Details
-                  </h4>
-                  <p className="text-white">{selectedOrder.order_number}</p>
-                  <p className="text-gray-400 text-sm">
-                    {selectedOrder.product_name}
-                  </p>
-                  <p className="text-gray-400 text-sm">
-                    Qty: {selectedOrder.quantity}
-                  </p>
-                </div>
-
-                {/* Production Status Warnings */}
-                {productionStatus[selectedOrder.id] &&
-                  !productionStatus[selectedOrder.id].hasProductionOrders && (
-                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-                      <p className="text-red-400 text-sm font-medium mb-1">
-                        ⚠ No Production Order
-                      </p>
-                      <p className="text-red-300 text-xs mb-2">
-                        Shipping without a work order means material costs (COGS) will not be tracked.
-                        This will result in 100% profit margin in accounting reports.
-                      </p>
-                      <button
-                        onClick={() => navigate(`/admin/orders/${selectedOrder.id}`)}
-                        className="text-xs text-blue-400 hover:text-blue-300 underline"
-                      >
-                        Create Work Order First →
-                      </button>
-                    </div>
-                  )}
-                {productionStatus[selectedOrder.id] &&
-                  productionStatus[selectedOrder.id].hasProductionOrders &&
-                  !productionStatus[selectedOrder.id].allComplete && (
-                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                      <p className="text-yellow-400 text-sm font-medium mb-1">
-                        ⚠ Production Not Complete
-                      </p>
-                      <p className="text-yellow-300 text-xs">
-                        {Math.round(
-                          productionStatus[selectedOrder.id].completionPercent
+                      {activeTab === "needs_label" && (
+                        <span className="text-blue-400 text-xs">Ready to label</span>
+                      )}
+                      {activeTab === "ready_to_ship" && order.tracking_number && (
+                        <span className="font-mono text-xs text-gray-400" title={order.tracking_number}>
+                          {order.carrier}: {order.tracking_number.slice(0, 12)}...
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex gap-2 justify-end">
+                        {activeTab === "packaging" && (
+                          <span className="text-gray-500 text-xs italic">Awaiting production</span>
                         )}
-                        % complete. Material costs will be incomplete until work order is marked complete.
-                      </p>
-                    </div>
-                  )}
+                        {activeTab === "needs_label" && (
+                          <button
+                            onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
+                            className="px-3 py-1 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700"
+                          >
+                            {isExpanded ? "Cancel" : "Add Label"}
+                          </button>
+                        )}
+                        {activeTab === "ready_to_ship" && (
+                          <button
+                            onClick={() => handleMarkShipped(order.id)}
+                            disabled={saving}
+                            className="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-50"
+                          >
+                            {saving ? "..." : "Ship"}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
 
-                {hasShippingAddress(selectedOrder) ? (
-                  <div className="bg-gray-800 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-300 mb-2">
-                      Ship To
-                    </h4>
-                    <p className="text-white text-sm whitespace-pre-line">
-                      {formatShippingAddress(selectedOrder)}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-                    <p className="text-red-400 text-sm font-medium mb-1">
-                      ⚠ Shipping Address Required
-                    </p>
-                    <p className="text-red-300 text-xs mb-2">
-                      Cannot create shipping label without a valid shipping address.
-                    </p>
-                    <button
-                      onClick={() => navigate(`/admin/orders/${selectedOrder.id}`)}
-                      className="text-xs text-blue-400 hover:text-blue-300 underline"
-                    >
-                      Edit Order to Add Address →
-                    </button>
-                  </div>
-                )}
-
-                {/* Quick Ship Links */}
-                {hasShippingAddress(selectedOrder) && (
-                  <div className="bg-gray-800 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-300 mb-3">
-                      Create Label at Carrier Website
-                    </h4>
-                    <div className="flex gap-2">
-                      <a
-                        href="https://www.usps.com/ship/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 py-2 px-3 bg-blue-600/20 text-blue-400 rounded-lg text-sm text-center hover:bg-blue-600/30 border border-blue-500/30"
-                      >
-                        USPS
-                      </a>
-                      <a
-                        href="https://www.fedex.com/en-us/shipping.html"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 py-2 px-3 bg-purple-600/20 text-purple-400 rounded-lg text-sm text-center hover:bg-purple-600/30 border border-purple-500/30"
-                      >
-                        FedEx
-                      </a>
-                      <a
-                        href="https://www.ups.com/ship"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 py-2 px-3 bg-yellow-600/20 text-yellow-400 rounded-lg text-sm text-center hover:bg-yellow-600/30 border border-yellow-500/30"
-                      >
-                        UPS
-                      </a>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Opens carrier website in new tab. Copy address above, then enter tracking below.
-                    </p>
-                  </div>
-                )}
-
-                {/* Enter Tracking */}
-                {hasShippingAddress(selectedOrder) && (
-                  <div className="bg-gray-800 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-300 mb-3">
-                      Enter Tracking Information
-                    </h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1">Carrier</label>
+              {/* Inline Label Entry Row */}
+              {expandedOrder && activeTab === "needs_label" && (
+                <tr className="bg-yellow-900/10">
+                  <td colSpan={8} className="px-4 py-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 flex items-center gap-3">
+                        <span className="text-gray-400 text-sm">Carrier:</span>
                         <select
                           value={trackingForm.carrier}
                           onChange={(e) => setTrackingForm({ ...trackingForm, carrier: e.target.value })}
-                          className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm"
+                          className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm"
                         >
                           <option value="USPS">USPS</option>
                           <option value="FedEx">FedEx</option>
@@ -537,42 +761,66 @@ export default function AdminShipping() {
                           <option value="DHL">DHL</option>
                           <option value="Other">Other</option>
                         </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1">Tracking Number</label>
+                        <span className="text-gray-400 text-sm">Tracking:</span>
                         <input
                           type="text"
                           value={trackingForm.tracking_number}
                           onChange={(e) => setTrackingForm({ ...trackingForm, tracking_number: e.target.value })}
                           placeholder="Enter tracking number..."
-                          className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm placeholder-gray-500"
+                          className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-white text-sm placeholder-gray-500"
+                          autoFocus
                         />
                       </div>
+                      <div className="flex gap-2">
+                        <a
+                          href="https://www.usps.com/ship/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1.5 bg-gray-700 text-gray-300 rounded text-xs hover:bg-gray-600"
+                        >
+                          USPS ↗
+                        </a>
+                        <a
+                          href="https://www.pirateship.com/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1.5 bg-gray-700 text-gray-300 rounded text-xs hover:bg-gray-600"
+                        >
+                          PirateShip ↗
+                        </a>
+                        <button
+                          onClick={() => handleSaveTracking(expandedOrder)}
+                          disabled={saving || !trackingForm.tracking_number.trim()}
+                          className="px-4 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                        >
+                          {saving ? "Saving..." : "Save & Ship"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setExpandedOrder(null);
+                            setTrackingForm({ carrier: "USPS", tracking_number: "" });
+                          }}
+                          className="px-3 py-1.5 bg-gray-700 text-gray-300 rounded text-sm hover:bg-gray-600"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  </td>
+                </tr>
+              )}
 
-                <div className="flex gap-3 pt-4">
-                  <button
-                    onClick={() => handleSaveTracking(selectedOrder.id)}
-                    disabled={creatingLabel || !hasShippingAddress(selectedOrder) || !trackingForm.tracking_number.trim()}
-                    className="flex-1 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {creatingLabel ? "Saving..." : "Mark as Shipped"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedOrder(null);
-                      if (orderIdParam) navigate("/admin/shipping");
-                    }}
-                    className="py-2.5 px-4 bg-gray-700 text-white rounded-lg hover:bg-gray-600"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+              {getCurrentOrders().length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                    {activeTab === "packaging" && "No orders awaiting packaging"}
+                    {activeTab === "needs_label" && "No orders need labels"}
+                    {activeTab === "ready_to_ship" && "No orders ready to ship"}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

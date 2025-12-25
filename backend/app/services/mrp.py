@@ -159,6 +159,7 @@ class NetRequirement:
     min_order_qty: Optional[Decimal] = None
     item_type: str = "component"
     has_bom: bool = False  # Whether this component is a manufactured sub-assembly
+    unit_cost: Decimal = Decimal("0")  # Standard or last cost for costing
 
 
 @dataclass
@@ -532,6 +533,22 @@ class MRPService:
             if net_shortage < 0:
                 net_shortage = Decimal("0")
 
+            # Get cost for costing display
+            # NOTE: For materials (filament), last_cost is stored as $/KG (industry standard)
+            # but inventory and BOM quantities are in grams. Need to convert for display.
+            # Non-materials have cost in their product.unit already.
+            raw_cost = Decimal(str(product.standard_cost or product.last_cost or 0))
+            product_unit = (product.unit or 'EA').upper().strip()
+
+            # Check if this is a material (filament) - costs are stored as $/KG
+            is_material = product.material_type_id is not None
+            if is_material and product_unit == 'G':
+                # Materials: cost is stored as $/KG, convert to $/g for costing
+                # e.g., $13/KG * 0.001 = $0.013/g
+                unit_cost = raw_cost * Decimal('0.001')
+            else:
+                unit_cost = raw_cost
+
             net_req = NetRequirement(
                 product_id=req.product_id,
                 product_sku=req.product_sku,
@@ -547,6 +564,7 @@ class MRPService:
                 reorder_point=product.reorder_point,
                 min_order_qty=product.min_order_qty,
                 has_bom=product.has_bom or False,
+                unit_cost=unit_cost,
             )
             net_requirements.append(net_req)
 

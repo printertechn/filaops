@@ -5,7 +5,7 @@ import { API_URL } from "../config/api";
 const ExportImport = ({ type }) => {
   const toast = useToast();
   const [importing, setImporting] = useState(false);
-  const [file, setFile] = useState(null);
+  const [_file, setFile] = useState(null); // Used via setFile in file input
   const [result, setResult] = useState(null);
 
   const handleExport = async () => {

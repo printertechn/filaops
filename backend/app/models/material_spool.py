@@ -4,7 +4,7 @@ Material Spool Model
 Tracks individual filament spools/rolls for traceability and weight management.
 Each spool represents a physical roll of material (e.g., PLA-BLK-001).
 """
-from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, Boolean
+from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 

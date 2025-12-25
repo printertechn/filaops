@@ -19,6 +19,8 @@ from app.models.sales_order import SalesOrder
 from app.models.production_order import ProductionOrder
 from app.models.bom import BOM
 from app.models.product import Product
+from app.models.inventory import InventoryTransaction
+from app.models.payment import Payment
 from app.api.v1.deps import get_current_staff_user
 
 router = APIRouter(prefix="/dashboard", tags=["Admin - Dashboard"])
@@ -65,6 +67,19 @@ class DashboardResponse(BaseModel):
     modules: List[ModuleInfo]
     recent_orders: List[dict]
     pending_bom_reviews: List[dict]
+
+
+class ProfitSummary(BaseModel):
+    """Profit and revenue summary for the dashboard"""
+    revenue_this_month: Decimal
+    revenue_ytd: Decimal
+    cogs_this_month: Decimal
+    cogs_ytd: Decimal
+    gross_profit_this_month: Decimal
+    gross_profit_ytd: Decimal
+    gross_margin_percent_this_month: Optional[Decimal] = None
+    gross_margin_percent_ytd: Optional[Decimal] = None
+    note: Optional[str] = None
 
 
 # ============================================================================
@@ -447,7 +462,6 @@ async def get_dashboard_summary(
     
     # Production orders ready to start (materials available)
     # Get released/pending production orders and check material availability
-    from app.api.v1.endpoints.production_orders import check_material_availability
     from app.models.bom import BOMLine
     from app.models.inventory import Inventory
     
@@ -601,6 +615,377 @@ async def get_pending_bom_reviews(
     ]
 
 
+@router.get("/sales-trend")
+async def get_sales_trend(
+    period: str = "MTD",  # ALL, YTD, QTD, MTD, WTD
+    current_admin: User = Depends(get_current_staff_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get sales trend data for charting.
+    Returns daily sales totals AND payment totals for the specified period.
+    """
+    now = datetime.now()
+
+    # Calculate start date based on period
+    if period == "WTD":
+        # Week to date - start of current week (Monday)
+        start_date = now - timedelta(days=now.weekday())
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "MTD":
+        # Month to date
+        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif period == "QTD":
+        # Quarter to date
+        quarter_start_month = ((now.month - 1) // 3) * 3 + 1
+        start_date = now.replace(month=quarter_start_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif period == "YTD":
+        # Year to date
+        start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:  # ALL - last 12 months
+        start_date = now - timedelta(days=365)
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Query daily sales totals (orders created)
+    daily_sales = (
+        db.query(
+            func.date(SalesOrder.created_at).label("date"),
+            func.sum(SalesOrder.grand_total).label("total"),
+            func.count(SalesOrder.id).label("count")
+        )
+        .filter(
+            SalesOrder.created_at >= start_date,
+            SalesOrder.status.notin_(["cancelled", "draft"])
+        )
+        .group_by(func.date(SalesOrder.created_at))
+        .order_by(func.date(SalesOrder.created_at))
+        .all()
+    )
+
+    # Query daily payment totals (payments received)
+    daily_payments = (
+        db.query(
+            func.date(Payment.payment_date).label("date"),
+            func.sum(Payment.amount).label("total"),
+            func.count(Payment.id).label("count")
+        )
+        .filter(
+            Payment.payment_date >= start_date,
+            Payment.status == "completed",
+            Payment.payment_type == "payment"  # Exclude refunds
+        )
+        .group_by(func.date(Payment.payment_date))
+        .order_by(func.date(Payment.payment_date))
+        .all()
+    )
+
+    # Calculate totals
+    total_revenue = sum(float(row.total or 0) for row in daily_sales)
+    total_orders = sum(row.count for row in daily_sales)
+    total_payments = sum(float(row.total or 0) for row in daily_payments)
+    total_payment_count = sum(row.count for row in daily_payments)
+
+    # Build date-indexed maps for merging
+    sales_by_date = {
+        row.date.isoformat() if row.date else None: {
+            "sales": float(row.total or 0),
+            "orders": row.count
+        }
+        for row in daily_sales
+    }
+
+    payments_by_date = {
+        row.date.isoformat() if row.date else None: {
+            "payments": float(row.total or 0),
+            "payment_count": row.count
+        }
+        for row in daily_payments
+    }
+
+    # Merge all dates
+    all_dates = sorted(set(sales_by_date.keys()) | set(payments_by_date.keys()))
+
+    # Format response with both sales and payments
+    data_points = [
+        {
+            "date": date,
+            "total": sales_by_date.get(date, {}).get("sales", 0),  # Sales (for backward compat)
+            "sales": sales_by_date.get(date, {}).get("sales", 0),
+            "orders": sales_by_date.get(date, {}).get("orders", 0),
+            "payments": payments_by_date.get(date, {}).get("payments", 0),
+            "payment_count": payments_by_date.get(date, {}).get("payment_count", 0),
+        }
+        for date in all_dates
+        if date is not None
+    ]
+
+    return {
+        "period": period,
+        "start_date": start_date.isoformat(),
+        "end_date": now.isoformat(),
+        "total_revenue": total_revenue,  # Total order value (accrual)
+        "total_orders": total_orders,
+        "total_payments": total_payments,  # Total payments received (cash)
+        "total_payment_count": total_payment_count,
+        "data": data_points
+    }
+
+
+@router.get("/shipping-trend")
+async def get_shipping_trend(
+    period: str = "MTD",  # ALL, YTD, QTD, MTD, WTD
+    current_admin: User = Depends(get_current_staff_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get shipping trend data for charting.
+    Returns daily shipped order counts and values for the specified period.
+    """
+    now = datetime.now()
+
+    # Calculate start date based on period
+    if period == "WTD":
+        start_date = now - timedelta(days=now.weekday())
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "MTD":
+        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif period == "QTD":
+        quarter_start_month = ((now.month - 1) // 3) * 3 + 1
+        start_date = now.replace(month=quarter_start_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif period == "YTD":
+        start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:  # ALL - last 12 months
+        start_date = now - timedelta(days=365)
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Query daily shipped orders (by shipped_at date)
+    daily_shipped = (
+        db.query(
+            func.date(SalesOrder.shipped_at).label("date"),
+            func.sum(SalesOrder.grand_total).label("total"),
+            func.count(SalesOrder.id).label("count")
+        )
+        .filter(
+            SalesOrder.shipped_at >= start_date,
+            SalesOrder.shipped_at.isnot(None),
+            SalesOrder.status.in_(["shipped", "completed", "delivered"])
+        )
+        .group_by(func.date(SalesOrder.shipped_at))
+        .order_by(func.date(SalesOrder.shipped_at))
+        .all()
+    )
+
+    # Query orders entering ready_to_ship status (approximated by status changes)
+    # For now, we'll track orders that are currently in the pipeline
+    pipeline_today = db.query(SalesOrder).filter(
+        SalesOrder.status == "ready_to_ship"
+    ).count()
+
+    pipeline_packaging = db.query(SalesOrder).filter(
+        SalesOrder.status == "in_production"
+    ).count()
+
+    # Calculate totals
+    total_shipped = sum(row.count for row in daily_shipped)
+    total_value = sum(float(row.total or 0) for row in daily_shipped)
+
+    # Format response
+    data_points = [
+        {
+            "date": row.date.isoformat() if row.date else None,
+            "shipped": row.count,
+            "value": float(row.total or 0),
+        }
+        for row in daily_shipped
+        if row.date is not None
+    ]
+
+    return {
+        "period": period,
+        "start_date": start_date.isoformat(),
+        "end_date": now.isoformat(),
+        "total_shipped": total_shipped,
+        "total_value": total_value,
+        "pipeline_ready": pipeline_today,
+        "pipeline_packaging": pipeline_packaging,
+        "data": data_points
+    }
+
+
+@router.get("/production-trend")
+async def get_production_trend(
+    period: str = "MTD",
+    current_admin: User = Depends(get_current_staff_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get production trend data for charting.
+    Returns daily completed production orders and units for the specified period.
+    """
+    now = datetime.now()
+
+    # Calculate start date based on period
+    if period == "WTD":
+        start_date = now - timedelta(days=now.weekday())
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "MTD":
+        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif period == "QTD":
+        quarter_start_month = ((now.month - 1) // 3) * 3 + 1
+        start_date = now.replace(month=quarter_start_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif period == "YTD":
+        start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:
+        start_date = now - timedelta(days=365)
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Query daily completed production orders (by completed_at date)
+    daily_completed = (
+        db.query(
+            func.date(ProductionOrder.completed_at).label("date"),
+            func.sum(ProductionOrder.quantity_completed).label("units"),
+            func.count(ProductionOrder.id).label("count")
+        )
+        .filter(
+            ProductionOrder.completed_at >= start_date,
+            ProductionOrder.completed_at.isnot(None),
+            ProductionOrder.status == "complete"
+        )
+        .group_by(func.date(ProductionOrder.completed_at))
+        .order_by(func.date(ProductionOrder.completed_at))
+        .all()
+    )
+
+    # Current pipeline stats
+    pipeline_in_progress = db.query(ProductionOrder).filter(
+        ProductionOrder.status == "in_progress"
+    ).count()
+
+    pipeline_scheduled = db.query(ProductionOrder).filter(
+        ProductionOrder.status.in_(["pending", "released", "scheduled"])
+    ).count()
+
+    # Calculate totals
+    total_completed = sum(row.count for row in daily_completed)
+    total_units = sum(int(row.units or 0) for row in daily_completed)
+
+    # Format response
+    data_points = [
+        {
+            "date": row.date.isoformat() if row.date else None,
+            "completed": row.count,
+            "units": int(row.units or 0),
+        }
+        for row in daily_completed
+        if row.date is not None
+    ]
+
+    return {
+        "period": period,
+        "start_date": start_date.isoformat(),
+        "end_date": now.isoformat(),
+        "total_completed": total_completed,
+        "total_units": total_units,
+        "pipeline_in_progress": pipeline_in_progress,
+        "pipeline_scheduled": pipeline_scheduled,
+        "data": data_points
+    }
+
+
+@router.get("/purchasing-trend")
+async def get_purchasing_trend(
+    period: str = "MTD",
+    current_admin: User = Depends(get_current_staff_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get purchasing trend data for charting.
+    Returns daily PO activity and spend for the specified period.
+
+    Uses inventory transactions as the source of truth for accurate timestamps.
+    Queries receipt transactions with reference_type='purchase_order'.
+    """
+    from app.models.purchase_order import PurchaseOrder
+
+    now = datetime.now()
+
+    # Calculate start date based on period
+    if period == "WTD":
+        start_date = now - timedelta(days=now.weekday())
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "MTD":
+        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif period == "QTD":
+        quarter_start_month = ((now.month - 1) // 3) * 3 + 1
+        start_date = now.replace(month=quarter_start_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif period == "YTD":
+        start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:
+        start_date = now - timedelta(days=365)
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Query daily PO receipts using received_date (local server time)
+    # This matches what users see in the table and avoids UTC timezone offset issues
+    # (Transaction created_at is UTC, but received_date is set via date.today() in local time)
+    # Include both "received" and "closed" statuses since closed POs were previously received
+    daily_received = (
+        db.query(
+            PurchaseOrder.received_date.label("date"),
+            func.sum(PurchaseOrder.total_amount).label("total"),
+            func.count(PurchaseOrder.id).label("count")
+        )
+        .filter(
+            PurchaseOrder.received_date >= start_date.date(),
+            PurchaseOrder.received_date.isnot(None),
+            PurchaseOrder.status.in_(["received", "closed"])
+        )
+        .group_by(PurchaseOrder.received_date)
+        .order_by(PurchaseOrder.received_date)
+        .all()
+    )
+
+    # Current pipeline stats
+    pipeline_ordered = db.query(PurchaseOrder).filter(
+        PurchaseOrder.status == "ordered"
+    ).count()
+
+    pipeline_draft = db.query(PurchaseOrder).filter(
+        PurchaseOrder.status == "draft"
+    ).count()
+
+    # Pending spend (ordered but not received)
+    pending_spend = db.query(func.sum(PurchaseOrder.total_amount)).filter(
+        PurchaseOrder.status == "ordered"
+    ).scalar() or 0
+
+    # Calculate totals
+    total_received = sum(row.count for row in daily_received)
+    total_spend = sum(float(row.total or 0) for row in daily_received)
+
+    # Format response
+    data_points = [
+        {
+            "date": row.date.isoformat() if row.date else None,
+            "received": row.count,
+            "spend": float(row.total or 0),
+        }
+        for row in daily_received
+        if row.date is not None
+    ]
+
+    return {
+        "period": period,
+        "start_date": start_date.isoformat(),
+        "end_date": now.isoformat(),
+        "total_received": total_received,
+        "total_spend": total_spend,
+        "pipeline_ordered": pipeline_ordered,
+        "pipeline_draft": pipeline_draft,
+        "pending_spend": float(pending_spend),
+        "data": data_points
+    }
+
+
 @router.get("/stats")
 async def get_quick_stats(
     current_admin: User = Depends(get_current_staff_user),
@@ -686,3 +1071,127 @@ async def get_modules(
             "icon": "users",
         },
     ]
+
+
+@router.get("/profit-summary", response_model=ProfitSummary)
+async def get_profit_summary(
+    current_admin: User = Depends(get_current_staff_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get profit and revenue summary for the dashboard.
+
+    Calculates:
+    - Revenue from completed/shipped sales orders (this month and YTD)
+    - COGS from material consumption in production (this month and YTD)
+    - Gross profit and gross margin percentages
+
+    Admin only. Freemium tier - basic profit view.
+    """
+    now = datetime.utcnow()
+
+    # Calculate month boundaries
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Calculate year boundaries
+    year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # ========== REVENUE CALCULATION ==========
+    # Sum of grand_total from sales orders with status 'shipped' or 'completed'
+    # This represents revenue that has been earned (goods delivered)
+
+    # Revenue this month
+    revenue_this_month_result = (
+        db.query(func.sum(SalesOrder.grand_total))
+        .filter(
+            SalesOrder.status.in_(["shipped", "completed", "delivered"]),
+            SalesOrder.shipped_at >= month_start,
+        )
+        .scalar()
+    )
+    revenue_this_month = revenue_this_month_result or Decimal("0")
+
+    # Revenue YTD
+    revenue_ytd_result = (
+        db.query(func.sum(SalesOrder.grand_total))
+        .filter(
+            SalesOrder.status.in_(["shipped", "completed", "delivered"]),
+            SalesOrder.shipped_at >= year_start,
+        )
+        .scalar()
+    )
+    revenue_ytd = revenue_ytd_result or Decimal("0")
+
+    # ========== COGS CALCULATION ==========
+    # Sum of material costs consumed in production
+    # We use inventory transactions with transaction_type='consumption'
+    # and reference_type='production_order' to track material usage
+    # The cost_per_unit field contains the material cost
+
+    # COGS this month (material consumption)
+    cogs_this_month_result = (
+        db.query(
+            func.sum(
+                InventoryTransaction.quantity *
+                func.coalesce(InventoryTransaction.cost_per_unit, 0)
+            )
+        )
+        .filter(
+            InventoryTransaction.transaction_type == "consumption",
+            InventoryTransaction.reference_type == "production_order",
+            InventoryTransaction.created_at >= month_start,
+        )
+        .scalar()
+    )
+    cogs_this_month = cogs_this_month_result or Decimal("0")
+
+    # COGS YTD
+    cogs_ytd_result = (
+        db.query(
+            func.sum(
+                InventoryTransaction.quantity *
+                func.coalesce(InventoryTransaction.cost_per_unit, 0)
+            )
+        )
+        .filter(
+            InventoryTransaction.transaction_type == "consumption",
+            InventoryTransaction.reference_type == "production_order",
+            InventoryTransaction.created_at >= year_start,
+        )
+        .scalar()
+    )
+    cogs_ytd = cogs_ytd_result or Decimal("0")
+
+    # ========== PROFIT CALCULATION ==========
+    gross_profit_this_month = revenue_this_month - cogs_this_month
+    gross_profit_ytd = revenue_ytd - cogs_ytd
+
+    # Calculate gross margin percentages
+    gross_margin_percent_this_month = None
+    if revenue_this_month > 0:
+        gross_margin_percent_this_month = (
+            (gross_profit_this_month / revenue_this_month) * Decimal("100")
+        ).quantize(Decimal("0.01"))
+
+    gross_margin_percent_ytd = None
+    if revenue_ytd > 0:
+        gross_margin_percent_ytd = (
+            (gross_profit_ytd / revenue_ytd) * Decimal("100")
+        ).quantize(Decimal("0.01"))
+
+    # Add note if COGS tracking is limited
+    note = None
+    if cogs_this_month == 0 and cogs_ytd == 0:
+        note = "COGS tracking requires inventory consumption transactions from production orders. Values may be zero if material consumption is not being tracked."
+
+    return ProfitSummary(
+        revenue_this_month=revenue_this_month,
+        revenue_ytd=revenue_ytd,
+        cogs_this_month=cogs_this_month,
+        cogs_ytd=cogs_ytd,
+        gross_profit_this_month=gross_profit_this_month,
+        gross_profit_ytd=gross_profit_ytd,
+        gross_margin_percent_this_month=gross_margin_percent_this_month,
+        gross_margin_percent_ytd=gross_margin_percent_ytd,
+        note=note,
+    )

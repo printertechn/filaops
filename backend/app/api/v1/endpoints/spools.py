@@ -6,17 +6,17 @@ Handles CRUD operations for filament spools and spool usage tracking.
 # pyright: reportArgumentType=false
 # pyright: reportAssignmentType=false
 # SQLAlchemy Column types resolve to actual values at runtime
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any
 from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, and_, or_
+from sqlalchemy import desc
 
 from app.db.session import get_db
 from app.api.v1.endpoints.auth import get_current_user
-from app.models import User, MaterialSpool, ProductionOrderSpool, Product, InventoryLocation
+from app.models import User, MaterialSpool, ProductionOrderSpool, Product
 from app.models.production_order import ProductionOrder
 from app.models.inventory import InventoryTransaction, Inventory
 from app.services.inventory_helpers import is_material
@@ -507,4 +507,105 @@ async def get_spool_traceability(
         "supplier_lot_number": spool.supplier_lot_number,
         "production_orders": traceability,
         "total_production_orders": len(traceability),
+    }
+
+
+# ============================================================================
+# Spool Consumption Recording
+# ============================================================================
+
+@router.post("/{spool_id}/consume")
+async def consume_spool_for_production(
+    spool_id: int,
+    production_order_id: int,
+    weight_consumed_g: float = Query(gt=0, description="Weight consumed in grams"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Record material consumption from a spool for a production order.
+
+    This creates the traceability link between spools and production orders,
+    enabling forward/backward traceability queries.
+
+    Parameters:
+    - spool_id: The spool being consumed from
+    - production_order_id: The production order using the material
+    - weight_consumed_g: Amount consumed in grams
+
+    Returns updated spool info and consumption record.
+    """
+    # Validate spool exists and is active
+    spool = db.query(MaterialSpool).filter(MaterialSpool.id == spool_id).first()
+    if not spool:
+        raise HTTPException(status_code=404, detail="Spool not found")
+
+    if spool.status != "active":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot consume from spool with status '{spool.status}'"
+        )
+
+    # Validate production order exists and is in-progress
+    po = db.query(ProductionOrder).filter(ProductionOrder.id == production_order_id).first()
+    if not po:
+        raise HTTPException(status_code=404, detail="Production order not found")
+
+    if po.status not in ("released", "in_progress"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot consume material for production order with status '{po.status}'"
+        )
+
+    # Check if consumption already recorded - update if so
+    existing = db.query(ProductionOrderSpool).filter(
+        ProductionOrderSpool.production_order_id == production_order_id,
+        ProductionOrderSpool.spool_id == spool_id,
+    ).first()
+
+    weight_consumed_kg = Decimal(str(weight_consumed_g))  # Field is in grams despite name
+
+    if existing:
+        # Update existing record
+        existing.weight_consumed_kg = existing.weight_consumed_kg + weight_consumed_kg  # type: ignore[assignment]
+        consumption = existing
+    else:
+        # Create new consumption record
+        consumption = ProductionOrderSpool(
+            production_order_id=production_order_id,
+            spool_id=spool_id,
+            weight_consumed_kg=weight_consumed_kg,
+            created_by=current_user.email,
+        )
+        db.add(consumption)
+
+    # Update spool's current weight
+    new_weight = (spool.current_weight_kg or Decimal("0")) - weight_consumed_kg
+    if new_weight < 0:
+        new_weight = Decimal("0")
+    spool.current_weight_kg = new_weight  # type: ignore[assignment]
+
+    # Mark as empty if weight is effectively zero
+    if new_weight < Decimal("5"):  # Less than 5g = empty
+        spool.status = "empty"  # type: ignore[assignment]
+
+    db.commit()
+    db.refresh(consumption)
+    db.refresh(spool)
+
+    return {
+        "message": "Consumption recorded successfully",
+        "consumption": {
+            "id": consumption.id,
+            "production_order_id": consumption.production_order_id,
+            "spool_id": consumption.spool_id,
+            "weight_consumed_g": float(consumption.weight_consumed_kg or 0),
+            "created_at": consumption.created_at.isoformat() if consumption.created_at else None,
+        },
+        "spool": {
+            "id": spool.id,
+            "spool_number": spool.spool_number,
+            "current_weight_g": float(spool.current_weight_kg or 0),
+            "status": spool.status,
+        },
     }

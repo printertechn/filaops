@@ -3,7 +3,7 @@ Purchase Orders API Endpoints
 """
 import os
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Query
-from typing import Annotated, List, Optional
+from typing import Annotated, Optional
 from datetime import datetime, date
 from decimal import Decimal
 from sqlalchemy.orm import Session, joinedload
@@ -12,7 +12,7 @@ from sqlalchemy import desc
 from app.db.session import get_db
 from app.logging_config import get_logger
 from app.services.google_drive import get_drive_service
-from app.services.uom_service import convert_quantity, convert_quantity_safe, get_conversion_factor
+from app.services.uom_service import convert_quantity_safe, get_conversion_factor
 from app.services.inventory_helpers import is_material
 from app.models.vendor import Vendor
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderLine
@@ -35,6 +35,13 @@ from app.schemas.purchasing import (
     ReceivePOResponse,
 )
 from app.schemas.common import PaginationParams, ListResponse, PaginationMeta
+from app.schemas.purchasing_event import (
+    PurchasingEventCreate,
+    PurchasingEventResponse,
+    PurchasingEventListResponse,
+)
+from app.models.purchasing_event import PurchasingEvent
+from app.services.event_service import record_purchasing_event
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -112,6 +119,7 @@ async def list_purchase_orders(
             status=po.status,
             order_date=po.order_date,
             expected_date=po.expected_date,
+            received_date=po.received_date,  # User-entered date from receive workflow
             total_amount=po.total_amount,
             line_count=len(po.lines),
             created_at=po.created_at,
@@ -251,6 +259,17 @@ async def create_purchase_order(
 
     # Calculate totals
     _calculate_totals(po)
+
+    # Record creation event
+    record_purchasing_event(
+        db=db,
+        purchase_order_id=po.id,
+        event_type="created",
+        title="Purchase Order Created",
+        description=f"Created for vendor {vendor.name}",
+        new_value="draft",
+        user_id=current_user.id,
+    )
 
     db.commit()
     db.refresh(po)
@@ -508,6 +527,32 @@ async def update_po_status(
 
     po.status = new_status
     po.updated_at = datetime.utcnow()
+
+    # Record status change event
+    status_titles = {
+        "ordered": "Order Placed",
+        "shipped": "Marked as Shipped",
+        "received": "Marked as Received",
+        "closed": "Order Closed",
+        "cancelled": "Order Cancelled",
+    }
+    description = None
+    if new_status == "shipped" and request.tracking_number:
+        description = f"Tracking: {request.tracking_number}"
+        if request.carrier:
+            description += f" ({request.carrier})"
+
+    record_purchasing_event(
+        db=db,
+        purchase_order_id=po.id,
+        event_type="status_change",
+        title=status_titles.get(new_status, f"Status changed to {new_status}"),
+        description=description,
+        old_value=old_status,
+        new_value=new_status,
+        user_id=current_user.id,
+    )
+
     db.commit()
     db.refresh(po)
 
@@ -546,6 +591,10 @@ async def receive_purchase_order(
             status_code=400,
             detail=f"Cannot receive items on PO in '{po.status}' status"
         )
+
+    # User-entered received date (defaults to today if not provided)
+    # This is the date items were ACTUALLY received, not when entered in system
+    actual_received_date = request.received_date or date.today()
 
     # Default location (get first warehouse or create default)
     location_id = request.location_id
@@ -765,10 +814,11 @@ async def receive_purchase_order(
             reference_type="purchase_order",
             reference_id=po.id,
             quantity=float(transaction_quantity),  # GRAMS for materials, product_unit for others
+            transaction_date=actual_received_date,  # User-entered date (when actually received)
             lot_number=item.lot_number,
             cost_per_unit=cost_per_unit_for_inventory,  # Cost per product_unit (KG for materials)
             notes=item.notes or f"Received from PO {po.po_number}",
-            created_at=datetime.utcnow(),
+            created_at=datetime.utcnow(),  # System timestamp (when entered)
             created_by=current_user.email,
         )
         db.add(txn)
@@ -855,7 +905,7 @@ async def receive_purchase_order(
                     supplier_lot_number=spool_data.supplier_lot_number or item.lot_number,
                     expiry_date=spool_data.expiry_date,
                     notes=spool_data.notes,
-                    received_date=datetime.utcnow(),
+                    received_date=datetime.combine(actual_received_date, datetime.min.time()),  # Use user-entered date
                     created_by=current_user.email,
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow(),
@@ -879,9 +929,43 @@ async def receive_purchase_order(
 
     if all_received:
         po.status = "received"
-        po.received_date = date.today()
+        po.received_date = actual_received_date  # Use user-entered date
 
     po.updated_at = datetime.utcnow()
+
+    # Record receipt event
+    event_type = "receipt" if all_received else "partial_receipt"
+    event_title = "Items Received" if all_received else "Partial Receipt"
+    event_description = f"Received {total_received} units across {lines_received} line(s)"
+    if spools_created:
+        event_description += f". Created {len(spools_created)} spool(s)."
+
+    record_purchasing_event(
+        db=db,
+        purchase_order_id=po.id,
+        event_type=event_type,
+        title=event_title,
+        description=event_description,
+        event_date=actual_received_date,
+        user_id=current_user.id,
+        metadata_key="quantity_received",
+        metadata_value=str(total_received),
+    )
+
+    # If fully received, also record status change event
+    if all_received:
+        record_purchasing_event(
+            db=db,
+            purchase_order_id=po.id,
+            event_type="status_change",
+            title="Fully Received",
+            description="All items received - PO status updated",
+            old_value="ordered",
+            new_value="received",
+            event_date=actual_received_date,
+            user_id=current_user.id,
+        )
+
     db.commit()
 
     logger.info(f"Received {total_received} items on PO {po.po_number}")
@@ -1020,3 +1104,115 @@ async def delete_purchase_order(
 
     logger.info(f"Deleted PO {po.po_number}")
     return {"message": f"Purchase order {po.po_number} deleted"}
+
+
+# ============================================================================
+# Event Timeline
+# ============================================================================
+
+@router.get("/{po_id}/events", response_model=PurchasingEventListResponse)
+async def list_po_events(
+    po_id: int,
+    limit: int = Query(default=50, ge=1, le=200, description="Max events to return"),
+    offset: int = Query(default=0, ge=0, description="Offset for pagination"),
+    db: Session = Depends(get_db),
+):
+    """
+    List activity events for a purchase order
+
+    Returns a timeline of all events (status changes, receipts, notes, etc.)
+    ordered by most recent first.
+    """
+    # Verify PO exists
+    po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+
+    # Query events with pagination
+    query = db.query(PurchasingEvent).filter(
+        PurchasingEvent.purchase_order_id == po_id
+    ).order_by(desc(PurchasingEvent.created_at))
+
+    total = query.count()
+    events = query.offset(offset).limit(limit).all()
+
+    # Build response with user names
+    items = []
+    for event in events:
+        user_name = None
+        if event.user_id and event.user:
+            user_name = event.user.full_name
+
+        items.append(PurchasingEventResponse(
+            id=event.id,
+            purchase_order_id=event.purchase_order_id,
+            user_id=event.user_id,
+            user_name=user_name,
+            event_type=event.event_type,
+            title=event.title,
+            description=event.description,
+            old_value=event.old_value,
+            new_value=event.new_value,
+            event_date=event.event_date,
+            metadata_key=event.metadata_key,
+            metadata_value=event.metadata_value,
+            created_at=event.created_at,
+        ))
+
+    return PurchasingEventListResponse(items=items, total=total)
+
+
+@router.post("/{po_id}/events", response_model=PurchasingEventResponse, status_code=201)
+async def add_po_event(
+    po_id: int,
+    request: PurchasingEventCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Add a manual event to a purchase order (typically a note)
+
+    This endpoint is for adding notes or manual tracking entries.
+    Status changes and receipts are automatically recorded by their
+    respective endpoints.
+    """
+    # Verify PO exists
+    po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+
+    event = record_purchasing_event(
+        db=db,
+        purchase_order_id=po_id,
+        event_type=request.event_type.value,
+        title=request.title,
+        description=request.description,
+        old_value=request.old_value,
+        new_value=request.new_value,
+        event_date=request.event_date,
+        user_id=current_user.id,
+        metadata_key=request.metadata_key,
+        metadata_value=request.metadata_value,
+    )
+    db.commit()
+    db.refresh(event)
+
+    user_name = current_user.full_name
+
+    logger.info(f"Added event '{request.event_type.value}' to PO {po.po_number}")
+
+    return PurchasingEventResponse(
+        id=event.id,
+        purchase_order_id=event.purchase_order_id,
+        user_id=event.user_id,
+        user_name=user_name,
+        event_type=event.event_type,
+        title=event.title,
+        description=event.description,
+        old_value=event.old_value,
+        new_value=event.new_value,
+        event_date=event.event_date,
+        metadata_key=event.metadata_key,
+        metadata_value=event.metadata_value,
+        created_at=event.created_at,
+    )

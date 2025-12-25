@@ -7,7 +7,7 @@ and workflow orchestration for Sales Orders and Production Orders.
 This service ensures proper state machine flow and prevents invalid
 status transitions.
 """
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Tuple
 from datetime import datetime
 from sqlalchemy.orm import Session
 
